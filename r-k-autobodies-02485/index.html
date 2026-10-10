@@ -61,12 +61,14 @@ h3{font-size:1.2rem;font-weight:700;margin-bottom:.35rem}
 .brand span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .brand-mark{display:grid;place-items:center;width:40px;height:40px;border-radius:11px;background:var(--primary);color:var(--on-primary);font-size:.95rem;flex:none}
 .logo{height:42px;width:auto}
-.logo.wordmark{height:46px}
+.logo.wordmark{height:46px;max-width:240px;object-fit:contain;object-position:left center}
 .style-luxe .logo.on-dark,.style-bold .logo.on-dark.in-hero{background:rgba(250,245,236,.94);padding:4px 10px;border-radius:8px;box-sizing:content-box}
 .hero-logo{display:block;max-width:min(360px,78%);height:auto;margin:0 0 1.4rem;filter:drop-shadow(0 8px 22px rgba(0,0,0,.28))}
 .hero-center .hero-logo{margin:0 auto 1.4rem}
 .logo.on-light{background:var(--dark);padding:5px 12px;border-radius:8px;box-sizing:content-box}
 .style-luxe .logo.on-light{background:none;padding:0}
+.hero-logo.clear{max-width:min(420px,82%);filter:drop-shadow(0 4px 18px rgba(0,0,0,.35))}
+.style-clean .hero-logo.clear,.style-warm .hero-logo.clear,.style-caff .hero-logo.clear{filter:none}
 .hero-logo.plate-dark{background:var(--dark);padding:18px 26px;border-radius:18px;box-sizing:content-box}
 .hero-logo.plate{background:rgba(250,245,236,.95);padding:18px 26px;border-radius:18px;box-sizing:content-box;filter:drop-shadow(0 10px 30px rgba(0,0,0,.35))}
 @media (max-width:760px){.hero-logo{max-width:70%}.logo.wordmark{height:38px}}
@@ -525,7 +527,7 @@ details[open] .plus::after{transform:translate(-50%,-50%) rotate(90deg)}
 </style>
 </head>
 <body class="style-bold">
-<div class="topbar"><div class="container"><a href="tel:07872121970"><svg class="ic " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg> 07872 121970</a><span><svg class="ic " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> Unit 28, Victoria Works Industrial Estate, Accrington Rd, Burnley</span><span><svg class="ic " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon fill="currentColor" stroke="none" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> 4.9 on Google (85 reviews)</span></div></div><nav class="nav"><div class="container nav-inner">
+<div style="background:#0e1525;color:#d6dae3;font:500 13px/1.4 Inter,system-ui,sans-serif;text-align:center;padding:7px 14px;position:relative;z-index:60">A concept website made for R.K Autobodies by <b style="color:#fff">Builds by Walden</b>. It isn't their official site. <a href="https://previews.buildsbywalden.co.uk/p/43e11a9530277159300299a2/" style="color:#ff8a6b;font-weight:600;text-decoration:underline">About this</a></div><div class="topbar"><div class="container"><a href="tel:07872121970"><svg class="ic " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg> 07872 121970</a><span><svg class="ic " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg> Unit 28, Victoria Works Industrial Estate, Accrington Rd, Burnley</span><span><svg class="ic " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon fill="currentColor" stroke="none" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg> 4.9 on Google (85 reviews)</span></div></div><nav class="nav"><div class="container nav-inner">
       <a class="brand" href="#top"><span class="brand-mark">RA</span><span>R.K Autobodies</span></a>
       <button class="burger" aria-label="Menu" aria-expanded="false"><span></span><span></span><span></span></button>
       <div class="links"><a href="#services">Services</a><a href="#about">About</a><a href="#reviews">Reviews</a><a href="#faqs">FAQs</a><a href="#contact">Contact</a><a class="btn btn-primary btn-sm" href="tel:07872121970"><svg class="ic " viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg> Call now</a></div></div></nav>
@@ -562,7 +564,7 @@ details[open] .plus::after{transform:translate(-50%,-50%) rotate(90deg)}
   var th=document.getElementById('today-hours');
   if(th){try{var hrs=JSON.parse(th.getAttribute('data-hours'));var day=new Date().toLocaleDateString('en-GB',{weekday:'long'});
     var line=hrs.filter(function(h){return h.toLowerCase().indexOf(day.toLowerCase())===0;})[0];
-    if(line){var t=line.split(':').slice(1).join(':').trim();th.querySelector('span').textContent=(/closed/i.test(t)?'Closed today':'Open today '+t);}}catch(e){}}
+    if(line){var t=line.split(':').slice(1).join(':').trim();th.querySelector('span').textContent=(/closed/i.test(t)?'Closed today':/^open/i.test(t)?t:'Open today '+t);}}catch(e){}}
   var items=[].slice.call(document.querySelectorAll('[data-lb]')),lb=document.querySelector('.lightbox'),idx=0;
   function showLb(i){idx=(i+items.length)%items.length;lb.querySelector('img').src=items[idx].getAttribute('href');lb.hidden=false;document.body.style.overflow='hidden';}
   function hideLb(){lb.hidden=true;document.body.style.overflow='';}
