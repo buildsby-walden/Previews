@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#1f2937">
+<meta name="robots" content="noindex,nofollow">
+<title>Your bookings</title>
+<link rel="stylesheet" href="app.css">
+<style>
+body{padding-bottom:84px}
+.top .out{margin-left:auto;background:none;border:0;color:var(--muted);text-decoration:underline;cursor:pointer;font-size:.85rem;padding:.5rem}
+.gate{max-width:380px;margin:0 auto;padding:2.4rem 16px}
+.gate input{font-size:1.4rem;letter-spacing:.3em;text-align:center}
+.tabs{position:fixed;left:0;right:0;bottom:0;background:var(--bg);border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);z-index:20;padding-bottom:env(safe-area-inset-bottom)}
+.tabs.three{grid-template-columns:repeat(3,1fr)}
+.tabs button{background:none;border:0;padding:.65rem 0 .7rem;font-weight:700;font-size:.8rem;color:var(--muted);cursor:pointer;min-height:58px;display:flex;flex-direction:column;align-items:center;gap:2px}
+.tabs button span{font-size:1.25rem;line-height:1}
+.tabs button.on{color:var(--primary)}
+@media (min-width:760px) and (max-width:899px){body{padding-bottom:0}.tabs{position:sticky;top:0;bottom:auto;border-top:0;border-bottom:1px solid var(--line);max-width:720px;margin:0 auto;grid-template-columns:repeat(4,auto);justify-content:start;gap:.4rem;padding:0 16px}
+  .tabs button{flex-direction:row;min-height:48px;padding:0 .8rem;font-size:.95rem;border-bottom:3px solid transparent}.tabs button.on{border-bottom-color:var(--primary)}}
+.view{padding:1.2rem 0 2rem}
+.bar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:0 0 1rem}
+.seg{display:inline-flex;border:1.5px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.seg button{background:var(--card);border:0;padding:.55rem .9rem;font-weight:700;cursor:pointer;min-height:42px}
+.seg button.on{background:var(--primary);color:var(--onp)}
+.dayhead{font-family:var(--hfont);text-transform:var(--htrans);font-weight:800;margin:1.4rem 0 .5rem;font-size:1rem}
+.dayhead small{font-family:var(--bfont);text-transform:none;font-weight:500;color:var(--muted);margin-left:.4rem}
+.bk{border:1px solid var(--line);border-left:4px solid var(--primary);border-radius:var(--radius);padding:.8rem .9rem;margin:0 0 .6rem;background:var(--card)}
+.bk.cancelled{border-left-color:#bbb;opacity:.65}
+.bk .when{font-weight:800;font-size:1.05rem}
+.bk .svc{color:var(--muted);font-weight:600}
+.bk .cust{margin:.35rem 0 0}
+.bk .cust a{font-weight:600}
+.bk .nt{background:var(--soft);border-radius:6px;padding:.4rem .6rem;margin:.5rem 0 0;font-size:.92rem}
+.bk .acts{display:flex;gap:.5rem;margin-top:.6rem;flex-wrap:wrap}
+.tag{display:inline-block;font-size:.72rem;font-weight:700;border-radius:999px;padding:.1rem .5rem;background:var(--soft);color:var(--muted);margin-left:.3rem;vertical-align:2px}
+.tag.x{background:#fee2e2;color:var(--bad)}
+.inline{background:var(--soft);border-radius:var(--radius);padding:.8rem;margin-top:.6rem}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.svcrow{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;align-items:end;border-bottom:1px solid var(--line);padding:.7rem 0}
+.svcrow label.f:first-child{grid-column:1/-1}
+@media (min-width:600px){.svcrow{grid-template-columns:1fr 100px 110px}.svcrow label.f:first-child{grid-column:auto}}
+.svcrow .full{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+.svcrow label.f{margin:0}
+.hrs{display:grid;grid-template-columns:110px 1fr;gap:.4rem .8rem;align-items:center;padding:.55rem 0;border-bottom:1px solid var(--line)}
+.hrs .times{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
+.hrs .rng{display:flex;align-items:center;gap:.4rem;white-space:nowrap;width:100%;max-width:19rem}
+.hrs input[type=time]{flex:1 1 0;width:auto;min-width:0;padding:.55rem .45rem}
+.sec{margin:0 0 2rem}
+.sec > h2{margin-bottom:.8rem}
+.link{display:flex;gap:.5rem}.link input{flex:1;font-size:.9rem}
+.empty{color:var(--muted);padding:1rem 0}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:96px;background:#111;color:#fff;padding:.7rem 1rem;border-radius:10px;z-index:50;font-weight:600;max-width:92vw}
+@media (min-width:760px){.toast{bottom:24px}}
+/* computers: menu down the left, bookings in columns, settings side by side */
+@media (min-width:900px){
+  body{padding-bottom:0}
+  .top .wrap{max-width:1180px}
+  .shell{max-width:1180px;margin:0 auto;padding:0 16px;display:grid;grid-template-columns:200px minmax(0,1fr);gap:2.5rem;align-items:start}
+  .shell > .wrap{max-width:none;padding:0;margin:0;width:100%}
+  .tabs{position:sticky;top:16px;left:auto;right:auto;bottom:auto;display:flex;flex-direction:column;gap:.25rem;border:0;background:none;padding:1.4rem 0 0}
+  .tabs button{flex-direction:row;justify-content:flex-start;gap:.7rem;min-height:46px;padding:0 .9rem;border-radius:var(--radius);font-size:.95rem;color:var(--text)}
+  .tabs button span{font-size:1.1rem;width:1.4rem;text-align:center}
+  .tabs button.on{background:var(--soft);color:var(--primary)}
+  .daygrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:.8rem}
+  .daygrid .bk{margin:0}
+  .setgrid{display:grid;grid-template-columns:1fr 1fr;gap:0 3rem;align-items:start}
+  .setgrid .wide{grid-column:1/-1}
+  #addf,#offf{max-width:680px}
+  .gate{padding-top:4rem}
+}
+@media (max-width:420px){.hrs{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="top hidden" id="top"><div class="wrap"><img id="logo" alt="" class="hidden"><div class="who"><b id="bname"></b><span>Your bookings</span></div><button class="out hidden" id="signout" type="button">Sign out</button></div></header>
+<div class="shell">
+<nav class="tabs hidden" id="tabs">
+  <button type="button" data-tab="diary" class="on"><span>📅</span>Diary</button>
+  <button type="button" data-tab="add"><span>＋</span>Add</button>
+  <button type="button" data-tab="off"><span>🌴</span>Time off</button>
+  <button type="button" data-tab="setup"><span>⚙︎</span>Settings</button>
+</nav>
+<main class="wrap" id="main"><p class="empty">Loading…</p></main>
+</div>
+<script src="config.js"></script>
+<script src="api.js"></script>
+<script>
+(function () {
+  "use strict";
+  var E = BWAPI.esc, $ = function (s, r) { return (r || document).querySelector(s); }, $$ = function (s, r) { return [].slice.call((r || document).querySelectorAll(s)); };
+  var slug = BWAPI.slug(), q = new URLSearchParams(location.search);
+  var KEY = "bw-owner-" + slug, token = "", D = null, tab = "diary", diaryMode = "up", showCancelled = false;
+  var DAYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"], DAYN = { mon: "Monday", tue: "Tuesday", wed: "Wednesday", thu: "Thursday", fri: "Friday", sat: "Saturday", sun: "Sunday" };
+  var MN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+  BWAPI.testBanner();
+  try { token = localStorage.getItem(KEY) || ""; } catch (e) {}
+
+  function ms(d) { var p = d.split("-"); return Date.UTC(+p[0], +p[1] - 1, +p[2]); }
+  function add(d, n) { return new Date(ms(d) + n * 864e5).toISOString().slice(0, 10); }
+  function hm(m) { return (m < 600 ? "0" : "") + Math.floor(m / 60) + ":" + ((m % 60) < 10 ? "0" : "") + (m % 60); }
+  function niceTime(min) { var h = Math.floor(min / 60), m = min % 60; if (h === 12 && !m) return "12 noon"; return ((h % 12) || 12) + (m ? ":" + (m < 10 ? "0" : "") + m : "") + (h >= 12 ? "pm" : "am"); }
+  function niceDate(d) { var x = new Date(ms(d)); return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][x.getUTCDay()] + " " + x.getUTCDate() + " " + MN[x.getUTCMonth()]; }
+  function len(min) { var h = Math.floor(min / 60), m = min % 60; return (h ? h + (h === 1 ? " hr" : " hrs") : "") + (h && m ? " " : "") + (m ? m + " mins" : ""); }
+  function tel(p) { return String(p || "").replace(/[^\d+]/g, ""); }
+  function toast(msg) { var t = document.createElement("div"); t.className = "toast"; t.textContent = msg; document.body.appendChild(t); setTimeout(function () { t.remove(); }, 2600); }
+  function saveToken(t) { token = t; try { t ? localStorage.setItem(KEY, t) : localStorage.removeItem(KEY); } catch (e) {} }
+  function bookUrl() { if (BWAPI.demo) return location.href.replace(/[?#].*$/, "").replace(/admin\.html$/, "");
+    return location.href.replace(/[?#].*$/, "").replace(/admin\.html$/, "").replace(/[^/]*$/, "") + (location.pathname.indexOf("/book/" + slug + "/") >= 0 ? "" : "?b=" + encodeURIComponent(slug)); }
+
+  if (!slug) { $("#main").innerHTML = '<div class="gate"><h1>Link not complete</h1><p>Please use the link Jay sent you.</p></div>'; return; }
+
+  function call(action, p) {
+    return BWAPI.call(action, Object.assign({ b: slug, token: token }, p || {})).then(function (r) {
+      if (!r.ok && r.signin) { saveToken(""); gate(r.error); }
+      return r;
+    });
+  }
+
+  // ---------------------------------------------------------------- sign in / first-time PIN
+  BWAPI.call("config", { b: slug }).then(function (r) {
+    if (!r.ok) { $("#main").innerHTML = '<div class="gate"><h1>Not found</h1><p>' + E(r.error) + "</p></div>"; return; }
+    BWAPI.applyTheme(r.business.theme);
+    $("#bname").textContent = r.business.name;
+    document.title = "Bookings | " + r.business.name;
+    if (r.business.theme.logo) { $("#logo").src = r.business.theme.logo; $("#logo").alt = ""; $("#logo").classList.remove("hidden"); }
+    $("#top").classList.remove("hidden");
+    if (BWAPI.demo) return BWAPI.ready.then(function () { saveToken(BWLocal.demoSignIn()); load(); });
+    if (q.get("setup")) return setupView(q.get("setup"));
+    if (token) return load(); else gate();
+  });
+
+  function gate(msg) {
+    $("#tabs").classList.add("hidden"); $("#signout").classList.add("hidden");
+    $("#main").innerHTML = '<form class="gate" id="gate"><h1>Sign in</h1><p class="muted">Enter your PIN to see your bookings.</p>' + (msg ? '<div class="err">' + E(msg) + "</div>" : "") +
+      '<label class="f"><span>PIN</span><input type="password" inputmode="numeric" autocomplete="current-password" name="pin" maxlength="10" required></label><div id="gerr"></div>' +
+      '<button class="btn wide" type="submit">Sign in</button><p class="small muted" style="margin-top:1.2rem">Forgotten your PIN? Ask Jay at Builds by Walden for a new set-up link.</p></form>';
+    $("#gate [name=pin]").focus();
+    $("#gate").onsubmit = function (e) {
+      e.preventDefault();
+      var b = $("#gate button"); b.disabled = true;
+      BWAPI.call("login", { b: slug, pin: e.target.pin.value }).then(function (r) {
+        b.disabled = false;
+        if (!r.ok) { $("#gerr").innerHTML = '<div class="err">' + E(r.error) + "</div>"; return; }
+        saveToken(r.token); load();
+      });
+    };
+  }
+
+  function setupView(code) {
+    $("#main").innerHTML = '<form class="gate" id="su"><h1>Welcome</h1><p>This is where you\'ll manage your online bookings. First, choose a PIN (6 to 10 numbers). You\'ll use it to sign in on your phone or computer.</p>' +
+      '<label class="f"><span>Choose a PIN</span><input type="password" inputmode="numeric" autocomplete="new-password" name="pin" maxlength="10" required></label>' +
+      '<label class="f"><span>Type it again</span><input type="password" inputmode="numeric" autocomplete="new-password" name="pin2" maxlength="10" required></label><div id="serr"></div>' +
+      '<button class="btn wide" type="submit">Save my PIN</button></form>';
+    $("#su").onsubmit = function (e) {
+      e.preventDefault();
+      var f = e.target;
+      if (f.pin.value !== f.pin2.value) { $("#serr").innerHTML = '<div class="err">The two PINs don\'t match.</div>'; return; }
+      BWAPI.call("setup", { b: slug, code: code, pin: f.pin.value }).then(function (r) {
+        if (!r.ok) { $("#serr").innerHTML = '<div class="err">' + E(r.error) + "</div>"; return; }
+        saveToken(r.token);
+        history.replaceState(null, "", location.pathname + (q.get("b") ? "?b=" + encodeURIComponent(slug) + (BWAPI.local && q.get("local") ? "&local=1" : "") : ""));
+        tab = "setup"; load(); toast("PIN saved. Check your services and hours below.");
+      });
+    };
+  }
+
+  $("#signout").onclick = function () { saveToken(""); gate(); };
+
+  // ---------------------------------------------------------------- the app
+  function load() {
+    var from = diaryMode === "past" ? add(todayGuess(), -60) : "";
+    return call("admin", from ? { from: from, to: add(todayGuess(), 0) } : {}).then(function (r) {
+      if (!r.ok) { if (!r.signin) $("#main").innerHTML = '<div class="err">' + E(r.error) + "</div>"; return; }
+      D = r;
+      $("#tabs").classList.remove("hidden"); if (!BWAPI.demo) $("#signout").classList.remove("hidden");
+      // restaurants and cafés don't need a Time off tab (Jay, 10 Oct 2026)
+      $('#tabs [data-tab="off"]').classList.toggle("hidden", isT()); $("#tabs").classList.toggle("three", isT());
+      if (isT() && tab === "off") tab = "diary";
+      show(tab);
+    });
+  }
+  function todayGuess() { return D ? D.today : new Date().toISOString().slice(0, 10); }
+
+  $$("#tabs button").forEach(function (b) { b.onclick = function () { show(b.dataset.tab); window.scrollTo(0, 0); }; });
+  function show(t) {
+    tab = t;
+    $$("#tabs button").forEach(function (b) { b.classList.toggle("on", b.dataset.tab === t); });
+    ({ diary: diary, add: addView, off: offView, setup: setupPage })[t]();
+  }
+
+  function svcOptions(sel) {
+    return D.business.services.map(function (s) { return '<option value="' + E(s.id) + '"' + (s.id === sel ? " selected" : "") + ">" + E(s.name) + " (" + len(s.minutes) + ")" + (s.active ? "" : " - hidden") + "</option>"; }).join("");
+  }
+
+  // diary
+  function diary() {
+    var today = D.today, list = D.bookings.filter(function (x) {
+      if (!showCancelled && x.status !== "confirmed") return false;
+      return diaryMode === "past" ? (x.date < today || (x.date === today && x.start + x.minutes <= D.now)) : (x.date > today || (x.date === today && x.start + x.minutes > D.now));
+    });
+    if (diaryMode === "past") list.reverse();
+    var h = '<div class="view"><div class="bar"><div class="seg"><button type="button" data-m="up" class="' + (diaryMode === "up" ? "on" : "") + '">Coming up</button><button type="button" data-m="past" class="' + (diaryMode === "past" ? "on" : "") + '">Past</button></div>' +
+      '<label class="check" style="margin:0"><input type="checkbox" id="showx"' + (showCancelled ? " checked" : "") + "> Show cancelled</label></div>";
+    if (D.business.status !== "active") h += '<div class="err">Online booking is switched off, so customers can\'t book. Turn it back on in Settings.</div>';
+    if (!list.length) h += '<p class="empty">' + (diaryMode === "past" ? "No bookings in the last two months." : "No bookings coming up yet. Share your booking link (in Settings) so customers can book.") + "</p>";
+    var last = "";
+    list.forEach(function (x) {
+      if (x.date !== last) {
+        if (last) h += "</div>";
+        last = x.date;
+        var n = list.filter(function (y) { return y.date === x.date && y.status === "confirmed"; }).length;
+        var ppl = isT() ? list.filter(function (y) { return y.date === x.date && y.status === "confirmed"; }).reduce(function (a, y) { return a + (+y.party || 0); }, 0) : 0;
+        h += '<div class="dayhead">' + (x.date === today ? "Today" : x.date === add(today, 1) ? "Tomorrow" : niceDate(x.date)) + "<small>" + (x.date === today || x.date === add(today, 1) ? niceDate(x.date) + " · " : "") + n + (n === 1 ? " booking" : " bookings") + (ppl ? ", " + ppl + " people" : "") + '</small></div><div class="daygrid">';
+      }
+      h += card(x);
+    });
+    if (last) h += "</div>";
+    $("#main").innerHTML = h + "</div>";
+    $$("[data-m]").forEach(function (b) { b.onclick = function () { diaryMode = b.dataset.m; load(); }; });
+    $("#showx").onchange = function () { showCancelled = this.checked; diary(); };
+    $$("[data-move]").forEach(function (b) { b.onclick = function () { moveForm(b.dataset.move); }; });
+    $$("[data-cancel]").forEach(function (b) { b.onclick = function () { cancelForm(b.dataset.cancel); }; });
+  }
+
+  function card(x) {
+    var live = x.status === "confirmed";
+    return '<div class="bk' + (live ? "" : " cancelled") + '" id="bk-' + E(x.id) + '"><div class="when">' + niceTime(x.start) + " – " + niceTime(x.start + x.minutes) +
+      (live ? "" : '<span class="tag x">Cancelled</span>') + '<span class="tag">' + (x.source === "owner" ? "Added by you" : "Booked online") + "</span></div>" +
+      '<div class="svc">' + (x.party ? "Table for " + E(x.party) : E(x.service) + " · " + len(x.minutes)) + "</div>" +
+      '<div class="cust"><b>' + E(x.name) + "</b>" + (x.phone ? ' · <a href="tel:' + E(tel(x.phone)) + '">' + E(x.phone) + "</a>" : "") + (x.email ? '<br><a href="mailto:' + E(x.email) + '">' + E(x.email) + "</a>" : "") + "</div>" +
+      (x.note ? '<div class="nt">' + E(x.note) + "</div>" : "") +
+      (live && diaryMode === "up" ? '<div class="acts"><button type="button" class="btn line small" data-move="' + E(x.id) + '">Move</button><button type="button" class="btn line small" data-cancel="' + E(x.id) + '">Cancel</button></div><div class="slot"></div>' : "") + "</div>";
+  }
+  function isT() { return D && D.business.mode === "tables"; }   // a restaurant or café: tables, not appointments
+  function find(id) { return D.bookings.filter(function (x) { return x.id === id; })[0]; }
+
+  function moveForm(id) {
+    var x = find(id), el = $("#bk-" + id + " .slot");
+    el.innerHTML = '<form class="inline"><div class="row2"><label class="f"><span>New day</span><input type="date" name="date" value="' + x.date + '" min="' + D.today + '" required></label>' +
+      '<label class="f"><span>New time</span><input type="time" name="time" value="' + hm(x.start) + '" step="300" required></label></div>' +
+      (x.email ? '<label class="check"><input type="checkbox" name="notify" checked> Email ' + E(x.name.split(" ")[0]) + " the new time</label>" : "") +
+      '<div class="msg"></div><div class="acts"><button class="btn small" type="submit">Move booking</button><button class="btn line small" type="button" data-close>Close</button></div></form>';
+    var f = $("form", el);
+    $("[data-close]", el).onclick = function () { el.innerHTML = ""; };
+    f.onsubmit = function (e) { e.preventDefault(); doMove(f, x, false); };
+  }
+  function doMove(f, x, force) {
+    call("move", { id: x.id, date: f.date.value, time: f.time.value, notify: !!(f.notify && f.notify.checked), force: force }).then(function (r) {
+      var m = $(".msg", f);
+      if (!r.ok) { m.innerHTML = '<div class="err">' + E(r.error) + "</div>"; return; }
+      if (r.clash) { m.innerHTML = '<div class="err">That clashes with: ' + r.clash.map(E).join(", ") + '. <button type="button" class="btn small danger" data-force>Move it anyway</button></div>'; $("[data-force]", m).onclick = function () { doMove(f, x, true); }; return; }
+      toast("Moved to " + niceDate(r.booking.date) + " at " + niceTime(r.booking.start) + (r.emailed ? ". We've emailed them." : ".")); load();
+    });
+  }
+  function cancelForm(id) {
+    var x = find(id), el = $("#bk-" + id + " .slot");
+    el.innerHTML = '<form class="inline"><p style="margin:0 0 .5rem"><b>Cancel ' + E(x.name) + "'s booking?</b></p>" +
+      (x.email ? '<label class="check"><input type="checkbox" name="notify" checked> Email ' + E(x.name.split(" ")[0]) + " to let them know</label>" : '<p class="small muted">They have no email, so let them know yourself.</p>') +
+      '<div class="msg"></div><div class="acts"><button class="btn small danger" type="submit">Yes, cancel it</button><button class="btn line small" type="button" data-close>Keep it</button></div></form>';
+    var f = $("form", el);
+    $("[data-close]", el).onclick = function () { el.innerHTML = ""; };
+    f.onsubmit = function (e) {
+      e.preventDefault();
+      call("ocancel", { id: id, notify: !!(f.notify && f.notify.checked) }).then(function (r) {
+        if (!r.ok) { $(".msg", f).innerHTML = '<div class="err">' + E(r.error) + "</div>"; return; }
+        toast("Cancelled" + (r.emailed ? ". We've emailed them." : ".")); load();
+      });
+    };
+  }
+
+  // add a booking (phone, walk-in...)
+  function addView() {
+    var s0 = D.business.services.filter(function (s) { return s.active; })[0] || D.business.services[0];
+    $("#main").innerHTML = '<div class="view"><h1>Add a booking</h1><p class="muted">For bookings made by phone, in person or by message.</p><form id="addf" novalidate>' +
+      (isT() ? '<input type="hidden" name="svc" value="' + E(s0 && s0.id) + '"><label class="f"><span>How many people</span><input type="number" name="party" min="1" max="200" value="2" required></label>'
+             : '<label class="f"><span>What for</span><select name="svc">' + svcOptions(s0 && s0.id) + '<option value="">Something else…</option></select></label>') +
+      '<div class="row2 hidden" id="other"><label class="f"><span>Describe it</span><input type="text" name="service" maxlength="60"></label><label class="f"><span>Minutes</span><input type="number" name="minutes" min="5" max="720" step="5" value="60"></label></div>' +
+      '<div class="row2"><label class="f"><span>Day</span><input type="date" name="date" value="' + D.today + '" required></label><label class="f"><span>Time</span><input type="time" name="time" step="300" required></label></div>' +
+      '<label class="f"><span>Customer\'s name</span><input type="text" name="name" maxlength="80" required></label>' +
+      '<div class="row2"><label class="f"><span>Phone <small class="muted">(optional)</small></span><input type="tel" name="phone" maxlength="30"></label><label class="f"><span>Email <small class="muted">(optional)</small></span><input type="email" name="email" maxlength="120"></label></div>' +
+      '<label class="f"><span>Note <small class="muted">(optional)</small></span><textarea name="note" maxlength="500"></textarea></label>' +
+      '<label class="check hidden" id="notifyrow"><input type="checkbox" name="notify" checked> Email them a confirmation</label>' +
+      '<div id="amsg"></div><button class="btn wide" type="submit">Add booking</button></form></div>';
+    var f = $("#addf");
+    if (!isT()) f.svc.onchange = function () { $("#other").classList.toggle("hidden", !!f.svc.value); };
+    f.email.oninput = function () { $("#notifyrow").classList.toggle("hidden", !f.email.value.trim()); };
+    f.onsubmit = function (e) { e.preventDefault(); doAdd(f, false); };
+  }
+  function doAdd(f, force) {
+    var bk = { service_id: f.svc.value, service: f.service.value, minutes: f.svc.value ? "" : f.minutes.value, date: f.date.value, time: f.time.value,
+               name: f.name.value, phone: f.phone.value, email: f.email.value, note: f.note.value, party: f.party ? f.party.value : "" };
+    call("add", { booking: bk, notify: f.notify.checked && !!f.email.value.trim(), force: force }).then(function (r) {
+      var m = $("#amsg");
+      if (!r.ok) { m.innerHTML = '<div class="err">' + E(r.error) + "</div>"; return; }
+      if (r.clash) { m.innerHTML = '<div class="err">That clashes with: ' + r.clash.map(E).join(", ") + '. <button type="button" class="btn small danger" id="forceadd">Book it anyway</button></div>'; $("#forceadd").onclick = function () { doAdd(f, true); }; return; }
+      toast("Added: " + r.booking.name + ", " + niceDate(r.booking.date) + " at " + niceTime(r.booking.start)); tab = "diary"; diaryMode = "up"; load();
+    });
+  }
+
+  // time off
+  function offView() {
+    var list = (D.business.time_off || []).filter(function (t) { return t.date >= D.today; });
+    $("#main").innerHTML = '<div class="view"><h1>Time off</h1><p class="muted">Customers can\'t book during time off. Bookings you already have aren\'t changed.</p>' +
+      '<form id="offf" class="card" novalidate><div class="row2"><label class="f"><span>From</span><input type="date" name="date" value="' + D.today + '" min="' + D.today + '" required></label>' +
+      '<label class="f"><span>Until <small class="muted">(same day if blank)</small></span><input type="date" name="to_date" min="' + D.today + '"></label></div>' +
+      '<label class="check"><input type="checkbox" name="all_day" checked> All day</label>' +
+      '<div class="row2 hidden" id="offtimes"><label class="f"><span>From</span><input type="time" name="from" value="12:00" step="300"></label><label class="f"><span>To</span><input type="time" name="to" value="13:00" step="300"></label></div>' +
+      '<label class="f"><span>Reason <small class="muted">(only you see this)</small></span><input type="text" name="reason" maxlength="60" placeholder="Holiday"></label>' +
+      '<div id="omsg"></div><button class="btn" type="submit">Add time off</button></form>' +
+      '<h2 style="margin-top:1.6rem">Coming up</h2>' + (list.length ? list.map(function (t) {
+        return '<div class="bk" style="border-left-color:#999;display:flex;justify-content:space-between;gap:.6rem;align-items:center"><div><b>' + niceDate(t.date) + "</b><br>" +
+          (t.all_day ? "All day" : niceTime(BWParse(t.from)) + " – " + niceTime(BWParse(t.to))) + (t.reason ? " · " + E(t.reason) : "") +
+          '</div><button type="button" class="btn line small" data-del="' + E(t.id) + '">Remove</button></div>';
+      }).join("") : '<p class="empty">No time off booked.</p>') + "</div>";
+    var f = $("#offf");
+    f.all_day.onchange = function () { $("#offtimes").classList.toggle("hidden", f.all_day.checked); };
+    f.onsubmit = function (e) {
+      e.preventDefault();
+      call("timeoff_add", { item: { date: f.date.value, to_date: f.to_date.value || f.date.value, all_day: f.all_day.checked, from: f.from.value, to: f.to.value, reason: f.reason.value } }).then(function (r) {
+        if (!r.ok) { $("#omsg").innerHTML = '<div class="err">' + E(r.error) + "</div>"; return; }
+        D.business = r.business;
+        if (r.affected && r.affected.length) toast("Added. You already have " + r.affected.length + (r.affected.length === 1 ? " booking" : " bookings") + " then: check your diary.");
+        else toast("Time off added.");
+        offView();
+      });
+    };
+    $$("[data-del]").forEach(function (b) { b.onclick = function () { call("timeoff_del", { id: b.dataset.del }).then(function (r) { if (r.ok) { D.business = r.business; offView(); } }); }; });
+  }
+  function BWParse(s) { var p = String(s).split(":"); return +p[0] * 60 + +p[1]; }
+
+  // settings
+  function setupPage() {
+    var b = D.business, s = b.settings, link = bookUrl();
+    var h = '<div class="view setgrid">';
+    h += '<section class="sec"><h2>Your booking page</h2>' +
+      '<label class="check"><input type="checkbox" id="open"' + (b.status === "active" ? " checked" : "") + "> Customers can book online</label>" +
+      '<p class="small muted">Share this link: put it on a "Book online" button on your website, in your Instagram and Facebook bio, and on your Google profile.</p>' +
+      '<div class="link"><input type="text" readonly value="' + E(link) + '" id="blink"><button type="button" class="btn small" id="copy">Copy</button></div>' +
+      '<p class="small"><a href="' + E(link) + '" target="_blank" rel="noopener">Open your booking page</a></p></section>';
+    h += '<section class="sec"><h2>Your details</h2><form id="me">' +
+      '<label class="f"><span>Email for booking alerts</span><input type="email" name="owner_email" value="' + E(b.owner_email) + '" required></label>' +
+      '<label class="check"><input type="checkbox" name="notify_owner"' + (s.notify_owner ? " checked" : "") + "> Email me about every new booking and cancellation</label>" +
+      '<div class="row2"><label class="f"><span>Phone (shown to customers)</span><input type="tel" name="phone" value="' + E(b.phone) + '"></label>' +
+      '<label class="f"><span>Address (shown to customers)</span><input type="text" name="address" value="' + E(b.address) + '"></label></div>' +
+      '<div id="mmsg"></div><button class="btn" type="submit">Save details</button></form></section>';
+    h += '<section class="sec wide"><h2>' + (isT() ? "Table bookings" : "What customers can book") + "</h2>" + (isT() ? '<p class="small muted">Minutes is how long a table is kept for each booking.</p>' : "") + '<div id="svcs"></div><p><button type="button" class="btn line small" id="addsvc">＋ Add another</button></p><div id="svmsg"></div><button type="button" class="btn" id="savesvc">Save</button></section>';
+    h += '<section class="sec"><h2>Opening hours for bookings</h2><div id="hrs"></div><div id="hmsg"></div><button type="button" class="btn" id="savehrs">Save hours</button></section>';
+    h += '<section class="sec"><h2>Booking rules</h2><form id="rules">' +
+      '<div class="row2"><label class="f"><span>Offer a start time every</span><select name="step">' + opts([[15, "15 minutes"], [30, "30 minutes"], [60, "hour"]], s.step) + "</select></label>" +
+      '<label class="f"><span>Gap between bookings</span><select name="buffer">' + opts([[0, "None"], [5, "5 minutes"], [10, "10 minutes"], [15, "15 minutes"], [30, "30 minutes"]], s.buffer) + "</select></label></div>" +
+      '<div class="row2"><label class="f"><span>Customers must book at least</span><select name="notice_hours">' + opts([[0, "Any time"], [1, "1 hour ahead"], [2, "2 hours ahead"], [4, "4 hours ahead"], [12, "12 hours ahead"], [24, "1 day ahead"], [48, "2 days ahead"]], s.notice_hours) + "</select></label>" +
+      '<label class="f"><span>And no more than</span><select name="days_ahead">' + opts([[7, "1 week ahead"], [14, "2 weeks ahead"], [28, "4 weeks ahead"], [42, "6 weeks ahead"], [56, "8 weeks ahead"], [91, "3 months ahead"]], s.days_ahead) + "</select></label></div>" +
+      (isT() ? '<div class="row2"><label class="f"><span>People you take bookings for at once</span><input type="number" name="seats" min="1" max="1000" value="' + E(s.seats) + '"></label>' +
+        '<label class="f"><span>Biggest group that can book online</span><input type="number" name="max_party" min="1" max="100" value="' + E(s.max_party) + '"></label></div>' : "") +
+      '<label class="f"><span>Customers can cancel online up to</span><select name="cancel_hours">' + opts([[0, "Any time before"], [2, "2 hours before"], [12, "12 hours before"], [24, "24 hours before"], [48, "48 hours before"]], s.cancel_hours) + "</select></label>" +
+      '<label class="f"><span>Message for customers <small class="muted">(on the booking page and in their email)</small></span><textarea name="note" maxlength="400" placeholder="e.g. Please arrive 5 minutes early.">' + E(s.note) + "</textarea></label>" +
+      '<div id="rmsg"></div><button class="btn" type="submit">Save rules</button></form></section>';
+    h += '<section class="sec"><h2>Change your PIN</h2><form id="pinf"><div class="row2"><label class="f"><span>Current PIN</span><input type="password" inputmode="numeric" name="old" maxlength="10" autocomplete="current-password"></label>' +
+      '<label class="f"><span>New PIN</span><input type="password" inputmode="numeric" name="pin" maxlength="10" autocomplete="new-password"></label></div><div id="pmsg"></div><button class="btn line" type="submit">Change PIN</button></form></section>';
+    $("#main").innerHTML = h + "</div>";
+
+    $("#copy").onclick = function () { var i = $("#blink"); i.select(); try { navigator.clipboard.writeText(i.value); } catch (e) { document.execCommand("copy"); } toast("Link copied"); };
+    $("#open").onchange = function () { var on = this.checked; save({ open: on }, null, on ? "Online booking is on." : "Online booking is off."); };
+
+    var svcs = JSON.parse(JSON.stringify(b.services));
+    function drawSvcs() {
+      $("#svcs").innerHTML = svcs.map(function (x, i) {
+        return '<div class="svcrow" data-i="' + i + '"><label class="f"><span>Name</span><input type="text" data-k="name" value="' + E(x.name) + '" maxlength="60"></label>' +
+          '<label class="f"><span>Minutes</span><input type="number" data-k="minutes" value="' + E(x.minutes) + '" min="5" max="720" step="5"></label>' +
+          '<label class="f"><span>Price</span><input type="text" data-k="price" value="' + E(x.price) + '" maxlength="20" placeholder="£"></label>' +
+          '<div class="full"><label class="check" style="margin:0"><input type="checkbox" data-k="active"' + (x.active ? " checked" : "") + '> Show on booking page</label><button type="button" class="btn line small" data-rm="' + i + '">Remove</button></div></div>';
+      }).join("");
+      $$("#svcs [data-k]").forEach(function (inp) {
+        inp.oninput = inp.onchange = function () { var i = +inp.closest(".svcrow").dataset.i, k = inp.dataset.k; svcs[i][k] = k === "active" ? inp.checked : inp.value; };
+      });
+      $$("#svcs [data-rm]").forEach(function (bt) { bt.onclick = function () { svcs.splice(+bt.dataset.rm, 1); drawSvcs(); }; });
+    }
+    drawSvcs();
+    $("#addsvc").onclick = function () { svcs.push({ name: "", minutes: 60, price: "", active: true }); drawSvcs(); $$("#svcs [data-k=name]").pop().focus(); };
+    $("#savesvc").onclick = function () { save({ services: svcs.filter(function (x) { return String(x.name).trim(); }) }, "#svmsg", "Saved."); };
+
+    var hours = JSON.parse(JSON.stringify(b.hours));
+    function drawHrs() {
+      $("#hrs").innerHTML = DAYS.map(function (d) {
+        var r = hours[d] || [];
+        return '<div class="hrs" data-d="' + d + '"><label class="check" style="margin:0"><input type="checkbox" data-open' + (r.length ? " checked" : "") + "> <b>" + DAYN[d] + "</b></label>" +
+          '<div class="times">' + (r.length ? r.map(function (x, i) {
+            return '<span class="rng"><input type="time" data-r="' + i + '" data-e="0" value="' + x[0] + '" step="300"> to <input type="time" data-r="' + i + '" data-e="1" value="' + x[1] + '" step="300"></span>' +
+              (i ? '<button type="button" class="btn line small" data-unbreak>Remove break</button>' : "");
+          }).join('<span class="muted small">then</span>') + (r.length === 1 ? ' <button type="button" class="btn line small" data-break>Add a break</button>' : "") : '<span class="muted">Closed</span>') + "</div></div>";
+      }).join("");
+      $$("#hrs .hrs").forEach(function (row) {
+        var d = row.dataset.d;
+        $("[data-open]", row).onchange = function () { hours[d] = this.checked ? [["09:00", "17:00"]] : []; drawHrs(); };
+        $$("input[type=time]", row).forEach(function (inp) { inp.onchange = function () { hours[d][+inp.dataset.r][+inp.dataset.e] = inp.value; }; });
+        var br = $("[data-break]", row); if (br) br.onclick = function () { var r = hours[d][0]; hours[d] = [[r[0], "12:00"], ["13:00", r[1]]]; drawHrs(); };
+        var ub = $("[data-unbreak]", row); if (ub) ub.onclick = function () { hours[d] = [[hours[d][0][0], hours[d][1][1]]]; drawHrs(); };
+      });
+    }
+    drawHrs();
+    $("#savehrs").onclick = function () { save({ hours: hours }, "#hmsg", "Hours saved."); };
+
+    $("#rules").onsubmit = function (e) {
+      e.preventDefault(); var f = e.target;
+      var st = { step: +f.step.value, buffer: +f.buffer.value, notice_hours: +f.notice_hours.value, days_ahead: +f.days_ahead.value, cancel_hours: +f.cancel_hours.value, note: f.note.value };
+      if (f.seats) { st.seats = +f.seats.value; st.max_party = +f.max_party.value; }
+      save({ settings: st }, "#rmsg", "Rules saved.");
+    };
+    $("#me").onsubmit = function (e) {
+      e.preventDefault(); var f = e.target;
+      save({ owner_email: f.owner_email.value, phone: f.phone.value, address: f.address.value, settings: { notify_owner: f.notify_owner.checked } }, "#mmsg", "Saved.");
+    };
+    $("#pinf").onsubmit = function (e) {
+      e.preventDefault(); var f = e.target;
+      call("pin_change", { old: f.old.value, pin: f.pin.value }).then(function (r) {
+        if (!r.ok) { $("#pmsg").innerHTML = '<div class="err">' + E(r.error) + "</div>"; return; }
+        saveToken(r.token); f.reset(); toast("PIN changed.");
+      });
+    };
+  }
+  function opts(list, val) {
+    var has = list.some(function (o) { return +o[0] === +val; });
+    if (!has) list = list.concat([[val, val + ""]]);
+    return list.map(function (o) { return '<option value="' + o[0] + '"' + (+o[0] === +val ? " selected" : "") + ">" + E(o[1]) + "</option>"; }).join("");
+  }
+  function save(patch, msgEl, okMsg) {
+    return call("save", { patch: patch }).then(function (r) {
+      if (!r.ok) { if (msgEl) $(msgEl).innerHTML = '<div class="err">' + E(r.error) + "</div>"; else toast(r.error); return; }
+      D.business = r.business;
+      if (msgEl) $(msgEl).innerHTML = "";
+      toast(okMsg || "Saved.");
+      if (patch.services) setupPage();
+    });
+  }
+})();
+</script>
+</body>
+</html>
