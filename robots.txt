@@ -1,0 +1,22 @@
+# Concept pages made for individual businesses: unlisted, not for search engines.
+# Link-preview bots may read them, so a shared link shows its picture.
+User-agent: facebookexternalhit
+Allow: /
+
+User-agent: Facebot
+Allow: /
+
+User-agent: WhatsApp
+Allow: /
+
+User-agent: Twitterbot
+Allow: /
+
+User-agent: LinkedInBot
+Allow: /
+
+User-agent: Slackbot
+Allow: /
+
+User-agent: *
+Disallow: /
