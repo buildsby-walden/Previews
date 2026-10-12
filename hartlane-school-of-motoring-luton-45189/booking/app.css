@@ -7,7 +7,7 @@ body{margin:0;background:var(--bg);color:var(--text);font-family:var(--bfont);fo
 h1,h2,h3{font-family:var(--hfont);text-transform:var(--htrans);line-height:1.15;margin:0 0 .5rem;letter-spacing:-.01em}
 h1{font-size:clamp(1.5rem,5vw,2.1rem);font-weight:800}
 h2{font-size:1.15rem;font-weight:700}
-a{color:var(--primary)}
+a{color:var(--link,var(--primary))}
 button,input,select,textarea{font:inherit;color:inherit}
 .wrap{max-width:720px;margin:0 auto;padding:0 16px}
 .muted{color:var(--muted)}.small{font-size:.85rem}

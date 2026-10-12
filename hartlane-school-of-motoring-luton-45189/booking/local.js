@@ -54,18 +54,23 @@ window.BWLocal = (function () {
   // a business's demo: their set-up, plus a few example bookings in the coming days so the owner's diary isn't empty
   if (DEMO && !data.biz.length) {
     var b = JSON.parse(JSON.stringify(DEMO.business));
-    b.id = b.id || "demo"; b.status = "active"; b.pin = null; b.setup_code = rand(20); b.setup_expires = BW.addDays(now().date, 30); b.time_off = [];
+    b.id = b.id || "demo"; b.status = "active"; b.questions = BW.cleanQuestions(b.questions || []); b.words = BW.cleanWords(b.words); b.settings = Object.assign({}, BW.DEFAULT_SETTINGS, b.settings); b.pin = null; b.setup_code = rand(20); b.setup_expires = BW.addDays(now().date, 30); b.time_off = [];
     data.biz = [b]; save(data);
     var n = now();
     (DEMO.samples || []).forEach(function (s, i) {
       var svc = b.services[s.service % b.services.length], date = BW.addDays(n.date, s.day);
       var party = b.mode === "tables" ? (s.party || 2) : "";
-      var free = BW.freeTimes(b, data.bk, svc, date, n, { owner: true, party: party || 2 });
+      var who = s.staff != null && (b.staff || []).length ? b.staff[s.staff % b.staff.length] : null;
+      var free = BW.freeTimes(b, data.bk, svc, date, n, { owner: true, party: party || 2, staff: who ? who.id : undefined });
       if (!free.length) return;
       var start = free[Math.min(free.length - 1, Math.floor(free.length * (s.at || 0.3)))];
-      data.bk.push({ id: "ex" + i, business: b.id, date: date, start: start, minutes: svc.minutes, service: svc.name, service_id: svc.id,
-                     name: s.name, phone: "07700 900" + (100 + i * 37), email: "", note: s.note || "", status: "confirmed", source: s.source || "online",
-                     created: new Date().toISOString(), cancel_token: rand(24), updated: "", party: party });
+      var weeks = Math.max(1, s.weeks || 1), series = weeks > 1 ? "exs" + i : "";
+      for (var w = 0; w < weeks; w++) {      // an example weekly booking: the same time for a few weeks
+        data.bk.push({ id: "ex" + i + (w ? "w" + w : ""), business: b.id, date: BW.addDays(date, 7 * w), start: start, minutes: svc.minutes, service: svc.name, service_id: svc.id,
+                       name: s.name, phone: "07700 900" + (100 + i * 37), email: "", note: s.note || "", status: s.status || "confirmed", source: s.source || "online",
+                       created: new Date().toISOString(), cancel_token: rand(24), updated: "", party: party, answers: s.answers || [],
+                       staff: who ? who.id : "", staff_name: who ? who.name : "", series: series });
+      }
     });
     save(data);
   }

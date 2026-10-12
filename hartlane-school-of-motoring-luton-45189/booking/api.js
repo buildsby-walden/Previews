@@ -33,6 +33,13 @@ window.BWAPI = (function () {
   function applyTheme(t) {
     t = t || {};
     var r = document.documentElement.style;
+    var lumC = function (hex) { var c = [1, 3, 5].map(function (i) { var v = parseInt(String(hex).substr(i, 2), 16) / 255; return v <= 0.04 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
+    var ratio = function (a, b) { var x = lumC(a), y = lumC(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+    var darker = function (hex) { return "#" + [1, 3, 5].map(function (i) { var v = Math.floor(parseInt(hex.substr(i, 2), 16) * 0.96); return (v < 16 ? "0" : "") + v.toString(16); }).join(""); };
+    // the brand colour, darkened just enough for its button text to reach 4.5:1 (WCAG AA; 'Accept' was 4.0:1, 12 Oct 2026)
+    var fill = /^#[0-9a-f]{6}$/i.test(t.primary || "") ? t.primary : "#1f2937";
+    for (var n = 0; n < 20 && Math.max(ratio(fill, "#ffffff"), ratio(fill, "#111111")) < 4.5; n++) fill = darker(fill);
+    t = Object.assign({}, t, { primary: fill });
     r.setProperty("--primary", t.primary || "#1f2937");
     r.setProperty("--text", t.text || "#111827");
     r.setProperty("--bg", t.bg || "#ffffff");
@@ -43,7 +50,11 @@ window.BWAPI = (function () {
     r.setProperty("--htrans", t.uppercase ? "uppercase" : "none");
     if (t.header) { r.setProperty("--header", t.header); document.documentElement.classList.add("dark-head"); }
     var lum = function (hex) { var c = [1, 3, 5].map(function (i) { var v = parseInt(String(hex).substr(i, 2), 16) / 255; return v <= 0.04 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }); return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]; };
-    r.setProperty("--onp", lum(t.primary || "#1f2937") > 0.45 ? "#111111" : "#ffffff");    // dark text on a light brand colour (yellow)
+    r.setProperty("--onp", ratio(t.primary, "#111111") > ratio(t.primary, "#ffffff") ? "#111111" : "#ffffff");    // whichever reads better
+    // links and text in the brand colour: darkened until they read at 4.5:1 on the page (Hartlane's red was 4.0:1, 12 Oct 2026)
+    var link = t.primary, bg = /^#[0-9a-f]{6}$/i.test(t.bg || "") ? t.bg : "#ffffff";
+    if (lumC(bg) > 0.4) for (var m = 0; m < 30 && ratio(link, bg) < 4.5; m++) link = darker(link);
+    r.setProperty("--link", link);
     if (lum(t.bg || "#ffffff") < 0.2) document.documentElement.classList.add("dark-ui");
     if (t.header && lum(t.header) > 0.45) document.documentElement.classList.add("light-head");
     var fams = [t.heading_font, t.body_font].filter(function (f, i, a) { return f && f !== "System" && a.indexOf(f) === i && /^[A-Za-z0-9 ]+$/.test(f); });

@@ -15,7 +15,7 @@
 .step h2 i{font-style:normal;display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--primary);color:var(--onp);font-size:.85rem;flex:none}
 .step.done h2 i{background:var(--text)}
 .step .chosen{display:flex;justify-content:space-between;align-items:center;gap:1rem;color:var(--muted)}
-.step .chosen button{background:none;border:0;color:var(--primary);font-weight:700;cursor:pointer;text-decoration:underline;padding:.4rem}
+.step .chosen button{background:none;border:0;color:var(--link,var(--primary));font-weight:700;cursor:pointer;text-decoration:underline;padding:.4rem}
 .services{display:grid;gap:.6rem}
 .svc{display:flex;justify-content:space-between;align-items:center;gap:1rem;text-align:left;border:1.5px solid var(--line);border-radius:var(--radius);background:var(--card);padding:.9rem 1rem;cursor:pointer;min-height:60px}
 .svc:hover{border-color:var(--primary)}
@@ -36,6 +36,9 @@
 .day.none{opacity:.38;cursor:default}
 .day.on{background:var(--primary);border-color:var(--primary);color:var(--onp)}.day.on small{color:var(--onp)}
 .month{font-weight:700;margin:0 0 .2rem}
+.who{display:flex;flex-wrap:wrap;gap:.45rem;margin:0 0 .9rem}.who-q{font-weight:700;margin:.2rem 0 .5rem}
+.who button{border:1.5px solid var(--line);border-radius:999px;background:var(--card);padding:.55rem 1rem;min-height:44px;font-weight:700;cursor:pointer}
+.who button.on{background:var(--primary);border-color:var(--primary);color:var(--onp)}
 .times{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:.45rem}
 .time{border:1.5px solid var(--line);border-radius:var(--radius);background:var(--card);padding:.7rem 0;cursor:pointer;font-weight:700;min-height:48px}
 .time:hover{border-color:var(--primary)}
@@ -76,7 +79,7 @@
   "use strict";
   var E = BWAPI.esc, $ = function (s) { return document.querySelector(s); };
   var slug = BWAPI.slug(), params = new URLSearchParams(location.search);
-  var biz = null, W = null, pick = { service: null, date: null, start: null }, week = null, lastDay = null, todayUK = null, busy = false, pendingGo = null;
+  var biz = null, W = null, pick = { service: null, date: null, start: null, staff: "any" }, week = null, lastDay = null, todayUK = null, busy = false, pendingGo = null;
   var DN = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], MN = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   BWAPI.testBanner();
 
@@ -107,7 +110,8 @@
 
   function render() {
     var s = pick.service, h = "";
-    h += '<div class="intro"><h1>' + E(W.title) + '</h1>' + (biz.settings.note ? '<p class="note">' + E(biz.settings.note) + "</p>" : "") + "</div>";
+    h += '<div class="intro"><h1>' + E(W.title) + '</h1>' + (biz.menu_url ? '<p><a href="' + E(biz.menu_url) + '" target="_blank" rel="noopener">See the menu</a></p>' : "") +
+      (biz.settings.note ? '<p class="note">' + E(biz.settings.note) + "</p>" : "") + "</div>";
     h += '<div class="layout"><div class="steps">';
     // 1 service (a restaurant: how many people)
     h += '<section id="step1" class="step' + (s ? " done" : "") + '"><h2><i>1</i>' + E(W.pick) + "</h2>";
@@ -123,7 +127,7 @@
     h += '<section id="step2" class="step' + (pick.start != null ? " done" : "") + '"><h2><i>2</i>Choose a day and time</h2>';
     if (!s) h += '<p class="muted">Pick from the list above first.</p>';
     else if (pick.start != null) h += '<div class="chosen"><span><b>' + niceDate(pick.date) + " at " + niceTime(pick.start) + '</b></span><button type="button" data-go="time">Change</button></div>';
-    else h += '<div id="picker"><p class="muted">Finding free times…</p></div>';
+    else h += staffChoice() + '<div id="picker"><p class="muted">Finding free times…</p></div>';
     h += "</section>";
     // 3 details
     h += '<section id="step3" class="step"><h2><i>3</i>Your details</h2>';
@@ -133,20 +137,23 @@
       '<label class="f"><span>Your name</span><input type="text" name="name" autocomplete="name" required maxlength="80"></label>' +
       '<div class="pair"><label class="f"><span>Mobile number</span><input type="tel" name="phone" autocomplete="tel" required maxlength="30"></label>' +
       '<label class="f"><span>Email</span><input type="email" name="email" autocomplete="email" required maxlength="120"><small class="muted">Your confirmation goes here.</small></label></div>' +
+      repeatChoice() + questions() +
       '<label class="f"><span>' + E(W.note_q) + ' <small class="muted">(optional)</small></span><textarea name="note" maxlength="500" placeholder="' + E(W.note_hint || "") + '"></textarea></label>' +
       '<label class="hp" aria-hidden="true">Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label>' +
       '<p class="small muted">Your details go to ' + E(biz.name) + ' so they can look after your booking. <a href="privacy.html" target="_blank">How they\'re used</a>.</p>' +
-      '<div id="ferr"></div><button class="btn wide" type="submit">Confirm booking</button></form>';
+      (ask() ? '<p class="small muted">This is a request: ' + E(biz.name) + " will check it and email you to confirm.</p>" : "") +
+      '<div id="ferr"></div><button class="btn wide" type="submit">' + (ask() ? "Send request" : "Confirm booking") + "</button></form>";
     h += "</section>";
     h += '</div><aside class="side">' + summary() + "</aside></div>";
     $("#main").innerHTML = h;
     document.querySelectorAll("[data-party]").forEach(function (b) {
       b.onclick = function () { pick = { service: biz.services[0], party: +b.dataset.party, date: null, start: null }; week = null; pendingGo = "#step2"; render(); };
     });
-    document.querySelectorAll("[data-svc]").forEach(function (b) { b.onclick = function () { pick = { service: biz.services[+b.dataset.svc], date: null, start: null }; week = null; pendingGo = "#step2"; render(); }; });
+    document.querySelectorAll("[data-svc]").forEach(function (b) { b.onclick = function () { pick = { service: biz.services[+b.dataset.svc], date: null, start: null, staff: pick.staff || "any" }; week = null; pendingGo = "#step2"; render(); }; });
+    document.querySelectorAll("[data-staff]").forEach(function (b) { b.onclick = function () { pick.staff = b.dataset.staff; pick.date = null; week = null; render(); }; });
     document.querySelectorAll("[data-go]").forEach(function (b) {
       b.onclick = function () {
-        if (b.dataset.go === "service") { pick = { service: null, date: null, start: null }; } else { pick.start = null; }
+        if (b.dataset.go === "service") { pick = { service: null, date: null, start: null, staff: pick.staff || "any" }; } else { pick.start = null; }
         if (b.dataset.go === "service") { render(); goTo("#step1"); } else { pendingGo = "#step2"; render(); }
       };
     });
@@ -190,10 +197,38 @@
   }
 
   function isT() { return biz.mode === "tables"; }
-  function whatLine() {       // 'Table for 4', or 'Beginner lessons · 1 hr · £36'
+  function team() { return isT() ? [] : (biz.staff || []); }
+  function staffName(id) { var p = team().filter(function (x) { return x.id === id; })[0]; return p ? p.name : ""; }
+  /* who it's with: a business with a team (driving instructors) lets customers choose, or take whoever is free */
+  function staffChoice() {
+    if (team().length < 2 || biz.settings.pick_staff === false) return "";
+    return '<p class="who-q">' + E(W.staff_q || "Who would you like?") + '</p><div class="who" role="group">' +
+      [["any", W.staff_any || "Anyone available"]].concat(team().map(function (p) { return [p.id, p.name]; })).map(function (o) {
+        return '<button type="button" data-staff="' + E(o[0]) + '" aria-pressed="' + (pick.staff === o[0]) + '" class="' + (pick.staff === o[0] ? "on" : "") + '">' + E(o[1]) + "</button>";
+      }).join("") + "</div>" + (biz.staff_note ? '<p class="small muted" style="margin:-.4rem 0 .8rem">' + E(biz.staff_note) + "</p>" : "");
+  }
+  /* the same time every week, for as many weeks as the business allows */
+  function repeatChoice() {
+    var n = +(biz.settings.repeat_max || 0);
+    if (isT() || n < 2) return "";
+    var o = '<option value="1">Just this once</option>';
+    for (var i = 2; i <= n; i++) o += '<option value="' + i + '">Same time every week, for ' + i + " weeks</option>";
+    return '<label class="f"><span>How often?</span><select name="repeat">' + o + "</select></label>";
+  }
+  function ask() { return !!(biz.settings && biz.settings.approve); }   // bookings are requests the business accepts
+  /* the trade's own questions (pickup address, the dog's name and size...), set up for this business */
+  function questions() {
+    return (biz.questions || []).map(function (q) {
+      var lab = '<span>' + E(q.label) + (q.required ? "" : ' <small class="muted">(optional)</small>') + "</span>";
+      if (q.kind === "choice") return '<label class="f">' + lab + '<select name="q_' + E(q.id) + '"' + (q.required ? " required" : "") + '><option value="">Choose…</option>' +
+        q.options.map(function (o) { return "<option>" + E(o) + "</option>"; }).join("") + "</select></label>";
+      return '<label class="f">' + lab + '<input type="text" name="q_' + E(q.id) + '" maxlength="160"' + (q.required ? " required" : "") + (q.hint ? ' placeholder="' + E(q.hint) + '"' : "") + "></label>";
+    }).join("");
+  }
+  function whatLine() {       // 'Table for 4', or 'Beginner lessons · 1 hr · £36 · with Salman'
     var s = pick.service;
     if (isT()) return "<b>Table for " + pick.party + "</b>";
-    return "<b>" + E(s.name) + "</b> · " + len(s.minutes) + (price(s.price) ? " · " + E(price(s.price)) : "");
+    return "<b>" + E(s.name) + "</b> · " + len(s.minutes) + (price(s.price) ? " · " + E(price(s.price)) : "") + (pick.staff && pick.staff !== "any" && staffName(pick.staff) ? " · with " + E(staffName(pick.staff)) : "");
   }
 
   function summary() {
@@ -207,7 +242,7 @@
 
   // the week strip: 7 days from `from`; jumps forward to the first day with times the first time round
   function loadWeek(from, hunting) {
-    BWAPI.call("slots", { b: slug, service: pick.service.id, party: pick.party || "", from: from || "", days: 7 }).then(function (r) {
+    BWAPI.call("slots", { b: slug, service: pick.service.id, party: pick.party || "", staff: pick.staff || "any", from: from || "", days: 7 }).then(function (r) {
       if (!r.ok) { $("#picker").innerHTML = '<div class="err">' + E(r.error) + "</div>"; return; }
       lastDay = r.last; todayUK = r.today;
       var days = r.days, first = days.filter(function (d) { return d.times.length; })[0];
@@ -246,14 +281,17 @@
     if (busy) return;
     var f = e.target, v = function (n) { return f.elements[n].value.trim(); };
     var err = !v("name") ? "Please add your name." : !/\d{5}/.test(v("phone").replace(/\D/g, "")) ? "Please add a phone number we can reach you on." : !/^[^@\s]+@[^@\s]+\.[a-z]{2,}$/i.test(v("email")) ? "Please check your email address." : "";
+    var answers = {};
+    (biz.questions || []).forEach(function (q) { var el = f.elements["q_" + q.id]; answers[q.id] = el ? el.value.trim() : ""; if (!err && q.required && !answers[q.id]) err = "Please answer: " + q.label; });
     if (err) { $("#ferr").innerHTML = '<div class="err">' + E(err) + "</div>"; return; }
-    busy = true; var btn = f.querySelector("button[type=submit]"); btn.disabled = true; btn.textContent = "Booking…";
-    BWAPI.call("book", { b: slug, service: pick.service.id, party: pick.party || "", date: pick.date, start: pick.start, name: v("name"), phone: v("phone"), email: v("email"), note: v("note"), website: f.elements.website.value })
+    busy = true; var btn = f.querySelector("button[type=submit]"); btn.disabled = true; btn.textContent = ask() ? "Sending…" : "Booking…";
+    BWAPI.call("book", { b: slug, service: pick.service.id, party: pick.party || "", date: pick.date, start: pick.start, name: v("name"), phone: v("phone"), email: v("email"), note: v("note"), answers: answers, staff: pick.staff || "any", repeat: f.elements.repeat ? +f.elements.repeat.value : 1, website: f.elements.website.value })
       .then(function (r) {
         busy = false;
         if (!r.ok) {
+          if (r.weeks) { $("#ferr").innerHTML = '<div class="err">' + E(r.error) + "</div>"; btn.disabled = false; btn.textContent = ask() ? "Send request" : "Confirm booking"; return; }
           if (r.taken) { pick.start = null; render(); goTo("#step2"); setTimeout(function () { var p = $("#picker"); if (p) p.insertAdjacentHTML("beforebegin", '<div class="err">' + E(r.error) + "</div>"); }, 0); return; }
-          $("#ferr").innerHTML = '<div class="err">' + E(r.error) + "</div>"; btn.disabled = false; btn.textContent = "Confirm booking"; return;
+          $("#ferr").innerHTML = '<div class="err">' + E(r.error) + "</div>"; btn.disabled = false; btn.textContent = ask() ? "Send request" : "Confirm booking"; return;
         }
         doneView(r.booking, r.emailed, v("email"));
       });
@@ -267,11 +305,14 @@
   }
 
   function doneView(x, emailed, email) {
-    $("#main").innerHTML = '<div class="done-box"><div class="tick">✓</div><h1>You\'re booked in</h1>' +
-      '<div class="summary"><b>' + E(label(x)) + "</b><br>" + niceDate(x.date) + " at " + niceTime(x.start) + (x.party ? "" : " (" + len(x.minutes) + ")") + (biz.address ? "<br>" + E(biz.address) : "") + "</div>" +
-      (emailed ? "<p>We've sent a confirmation to <b>" + E(email) + "</b>, with a link to cancel if you need to.</p>" : "<p>Your booking is saved. We couldn't send the confirmation email, so please keep a note of it.</p>") +
+    var req = x.status === "requested";
+    $("#main").innerHTML = '<div class="done-box"><div class="tick">✓</div><h1>' + (req ? "Request sent" : "You\'re booked in") + "</h1>" +
+      (req ? "<p>" + E(biz.name) + " will check it and email you to confirm. The time is held for you until then.</p>" : "") +
+      '<div class="summary"><b>' + E(label(x)) + "</b>" + (x.staff_name ? " with " + E(x.staff_name) : "") + "<br>" + niceDate(x.date) + " at " + niceTime(x.start) + (x.party ? "" : " (" + len(x.minutes) + ")") +
+      ((x.dates || []).length > 1 ? "<br><br>Every week, " + x.dates.length + " times:<br>" + x.dates.map(niceDate).join("<br>") : "") + (biz.address ? "<br>" + E(biz.address) : "") + "</div>" +
+      (emailed ? "<p>We've sent " + (req ? "a copy of your request" : "a confirmation") + " to <b>" + E(email) + "</b>, with a link to cancel if you need to.</p>" : "<p>Your " + (req ? "request" : "booking") + " is saved. We couldn't send the email, so please keep a note of it.</p>") +
       (biz.settings.note ? '<p class="note">' + E(biz.settings.note) + "</p>" : "") +
-      '<p><a class="btn line" href="' + E(calLink(x)) + '" target="_blank" rel="noopener">Add to my calendar</a></p></div>';
+      (req ? "" : '<p><a class="btn line" href="' + E(calLink(x)) + '" target="_blank" rel="noopener">Add to my calendar</a></p>') + "</div>";
     goTo(".done-box");
   }
 
@@ -279,18 +320,23 @@
     BWAPI.call("lookup", { b: slug, id: id, t: t }).then(function (r) {
       if (!r.ok) return fail(r.error);
       var x = r.booking, line = '<div class="summary"><b>' + E(label(x)) + "</b><br>" + niceDate(x.date) + " at " + niceTime(x.start) + "</div>";
-      var h = '<div class="intro"><h1>' + (x.status === "cancelled" ? "This booking is cancelled" : "Your booking") + "</h1></div>" + line;
-      if (x.status === "cancelled") h += '<p><a class="btn" href="?b=' + encodeURIComponent(slug) + '">Book another time</a></p>';
-      else if (r.can_cancel) h += '<p>Need to cancel, ' + E(x.name) + '?</p><div id="cerr"></div><button class="btn danger" id="cx" type="button">Cancel this booking</button>';
+      var gone = x.status === "cancelled" || x.status === "declined";
+      var h = '<div class="intro"><h1>' + (x.status === "cancelled" ? "This booking is cancelled" : x.status === "declined" ? "This time wasn't available" : x.status === "requested" ? "Your request" : "Your booking") + "</h1>" +
+        (x.status === "requested" ? '<p class="muted">Waiting for ' + E(biz.name) + " to confirm.</p>" : "") + "</div>" + line;
+      if (gone) h += '<p><a class="btn" href="?b=' + encodeURIComponent(slug) + '">Book another time</a></p>';
+      else if (r.can_cancel) h += '<p>Need to cancel, ' + E(x.name) + '?</p><div id="cerr"></div><button class="btn danger" id="cx" type="button">Cancel this booking</button>' +
+        (x.weeks_left > 1 ? ' <button class="btn line" id="cxall" type="button">Cancel this and the ' + (x.weeks_left - 1) + " after it</button>" : "");
       else h += "<p>It's too close to the time to cancel online." + (biz.phone ? ' Please call <a href="tel:' + E(biz.phone.replace(/[^\d+]/g, "")) + '">' + E(biz.phone) + "</a>." : " Please get in touch directly.") + "</p>";
       $("#main").innerHTML = h;
-      if ($("#cx")) $("#cx").onclick = function () {
-        var b = this; b.disabled = true; b.textContent = "Cancelling…";
-        BWAPI.call("cancel", { b: slug, id: id, t: t }).then(function (c) {
+      var doCancel = function (b, all) {
+        b.disabled = true; b.textContent = "Cancelling…";
+        BWAPI.call("cancel", { b: slug, id: id, t: t, series: !!all }).then(function (c) {
           if (!c.ok) { $("#cerr").innerHTML = '<div class="err">' + E(c.error) + "</div>"; b.disabled = false; b.textContent = "Cancel this booking"; return; }
-          $("#main").innerHTML = '<div class="intro"><h1>Cancelled</h1></div>' + line + "<p>Your booking is cancelled and we've let " + E(biz.name) + ' know.</p><p><a class="btn" href="?b=' + encodeURIComponent(slug) + '">Book another time</a></p>';
+          $("#main").innerHTML = '<div class="intro"><h1>Cancelled</h1></div>' + line + "<p>" + (all ? "Your weekly bookings from this date are cancelled" : "Your booking is cancelled") + " and we've let " + E(biz.name) + ' know.</p><p><a class="btn" href="?b=' + encodeURIComponent(slug) + '">Book another time</a></p>';
         });
       };
+      if ($("#cx")) $("#cx").onclick = function () { doCancel(this, false); };
+      if ($("#cxall")) $("#cxall").onclick = function () { doCancel(this, true); };
     });
   }
 })();

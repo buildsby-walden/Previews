@@ -26,12 +26,15 @@ var BW = (function () {
     buffer: 0,           // minutes kept free between bookings
     cancel_hours: 24,    // customers can cancel online up to this long before
     note: "",            // shown to customers on the booking page and in their email
+    pick_staff: true,    // with more than one person (instructors, stylists): customers can choose who, or 'anyone'
+    repeat_max: 0,       // weekly repeat bookings allowed, up to this many weeks (driving lessons: 'same time every week'); 0 = off
+    approve: false,      // online bookings arrive as requests the owner accepts or declines (driving schools, 12 Oct 2026)
     seats: 30,           // tables mode: how many people they take bookings for at the same time
     max_party: 8,        // tables mode: the biggest group that can book online (bigger groups phone)
     notify_owner: true   // email the owner about each new booking and cancellation
   };
   var MUTATING = { book: 1, cancel: 1, setup: 1, login: 1, save: 1, add: 1, move: 1, ocancel: 1, timeoff_add: 1,
-                   timeoff_del: 1, pin_change: 1, j_create: 1, j_code: 1, j_update: 1 };
+                   timeoff_del: 1, accept: 1, decline: 1, pin_change: 1, j_create: 1, j_code: 1, j_update: 1 };
   var TOKEN_DAYS = 30;
   var SETUP_DAYS = 30;
   var MAX_FAILS = 5, LOCK_MINUTES = 15;
@@ -144,9 +147,11 @@ var BW = (function () {
       out[k] = v;
     };
     num("step", 5, 240); num("notice_hours", 0, 336); num("days_ahead", 1, 365); num("buffer", 0, 120); num("cancel_hours", 0, 336);
-    num("seats", 1, 1000); num("max_party", 1, 100);
+    num("seats", 1, 1000); num("max_party", 1, 100); num("repeat_max", 0, 26);
+    if (s.pick_staff != null) out.pick_staff = !!s.pick_staff;
     if (s.note != null) out.note = clean(s.note, 400);
     if (s.notify_owner != null) out.notify_owner = !!s.notify_owner;
+    if (s.approve != null) out.approve = !!s.approve;
     return out;
   }
 
@@ -167,7 +172,69 @@ var BW = (function () {
   function cleanWords(w) {
     w = w || {};
     return { title: clean(w.title, 40) || "Book online", pick: clean(w.pick, 40) || "Choose what you'd like",
-             note_q: clean(w.note_q, 60) || "Anything we should know?", note_hint: clean(w.note_hint, 120) };
+             note_q: clean(w.note_q, 60) || "Anything we should know?", note_hint: clean(w.note_hint, 120),
+             gap: clean(w.gap, 40) || "Gap between bookings",
+             staff: clean(w.staff, 30) || "team member", staff_q: clean(w.staff_q, 40) || "Who would you like?",
+             staff_any: clean(w.staff_any, 40) || "Anyone available" };   // 'Travel time between lessons' for a driving instructor
+  }
+
+  /* Extra questions for their trade, asked when someone books ('Where should we pick you up?', 'Your dog's name and
+     size'). Up to 6; each is free text or a choice from a short list. Answers are kept with the booking (12 Oct 2026). */
+  function cleanQuestions(list) {
+    if (list == null) return [];
+    if (!Array.isArray(list)) throw Err("Questions should be a list.");
+    var out = [], seen = {};
+    list.slice(0, 6).forEach(function (q) {
+      var label = clean(q && q.label, 60);
+      if (!label) return;
+      var id = slugify(q.id || label).slice(0, 24).replace(/-+$/, "");
+      while (seen[id]) id += "x";
+      seen[id] = 1;
+      var options = Array.isArray(q.options) ? q.options.map(function (o) { return clean(o, 40); }).filter(Boolean).slice(0, 8) : [];
+      out.push({ id: id, label: label, kind: q.kind === "choice" && options.length >= 2 ? "choice" : "text", options: q.kind === "choice" && options.length >= 2 ? options : [],
+                 required: !!q.required, hint: clean(q.hint, 80) });
+    });
+    return out;
+  }
+
+  /* The people bookings are with (driving instructors, stylists), 12 Oct 2026. Each has their own diary: one being
+     booked doesn't block the others. With nobody listed, the business is one diary, as before. Bookings made before
+     anyone was listed (no 'staff') block everyone, so nothing old is double-booked. */
+  function cleanStaff(list, env, old) {
+    if (list == null) return [];
+    if (!Array.isArray(list)) throw Err("The team should be a list.");
+    var out = [], seen = {};
+    list.slice(0, 20).forEach(function (s) {
+      var name = clean(s && s.name, 40);
+      if (!name || seen[name.toLowerCase()]) return;
+      seen[name.toLowerCase()] = 1;
+      var p = { id: clean(s.id, 20) || env.id(8), name: name, active: s.active !== false };
+      if (s.hours) p.hours = cleanHours(s.hours);     // their own working hours; none = the business's hours
+      out.push(p);
+    });
+    return out;
+  }
+  function hoursFor(b, staffId) {
+    var p = staffId ? (b.staff || []).filter(function (x) { return x.id === staffId; })[0] : null;
+    return (p && p.hours) || b.hours;
+  }
+  function team(b) { return tables(b) ? [] : (b.staff || []).filter(function (s) { return s.active !== false; }); }
+  function staffById(b, id) { return (b.staff || []).filter(function (s) { return s.id === id; })[0] || null; }
+  function mineFor(x, staffId) { return !staffId || !x.staff || x.staff === staffId; }
+
+  /* a booking that takes up its time: confirmed, or a request waiting for the owner (the time is held for it) */
+  function holds(x) { return x.status === "confirmed" || x.status === "requested"; }
+
+  function cleanAnswers(b, given) {
+    given = given || {};
+    var out = [];
+    (b.questions || []).forEach(function (q) {
+      var v = clean(given[q.id], 160);
+      if (q.kind === "choice" && v && q.options.indexOf(v) < 0) v = "";
+      if (!v && q.required) throw Err("Please answer: " + q.label);
+      if (v) out.push({ q: q.label, a: v });
+    });
+    return out;
   }
 
   function publicView(b) {
@@ -177,7 +244,10 @@ var BW = (function () {
         return { id: s.id, name: s.name, minutes: s.minutes, price: s.price, desc: s.desc };
       }),
       settings: { days_ahead: b.settings.days_ahead, cancel_hours: b.settings.cancel_hours, note: b.settings.note, notice_hours: b.settings.notice_hours,
-                  max_party: b.settings.max_party },
+                  max_party: b.settings.max_party, approve: !!b.settings.approve, pick_staff: b.settings.pick_staff !== false, repeat_max: b.settings.repeat_max || 0 },
+      staff: team(b).map(function (s) { return { id: s.id, name: s.name }; }), staff_note: clean(b.staff_note, 160),
+      menu_url: /^https:\/\//.test(b.menu_url || "") ? clean(b.menu_url, 300) : "",
+      questions: b.questions || [],
       mode: tables(b) ? "tables" : "appointments",
       theme: b.theme, words: cleanWords(b.words), open: b.status === "active"
     };
@@ -200,24 +270,24 @@ var BW = (function () {
     var most = 0;
     // the busiest moment during this sitting: check at each booking that starts inside it, and at its start
     var points = [start];
-    bookings.forEach(function (x) { if (x.status === "confirmed" && x.date === date && x.start > start && x.start < start + minutes) points.push(x.start); });
+    bookings.forEach(function (x) { if (holds(x) && x.date === date && x.start > start && x.start < start + minutes) points.push(x.start); });
     points.forEach(function (p) {
       var n = 0;
       bookings.forEach(function (x) {
-        if (x.status === "confirmed" && x.date === date && x.id !== ignoreId && x.start <= p && x.start + x.minutes > p) n += (+x.party || 2);
+        if (holds(x) && x.date === date && x.id !== ignoreId && x.start <= p && x.start + x.minutes > p) n += (+x.party || 2);
       });
       most = Math.max(most, n);
     });
     return most;
   }
 
-  function busyFor(b, bookings, date, ignoreId) {
+  function busyFor(b, bookings, date, ignoreId, staffId) {
     var buf = b.settings.buffer || 0, out = [];
     bookings.forEach(function (x) {
-      if (x.status === "confirmed" && x.date === date && x.id !== ignoreId) out.push([x.start - buf, x.start + x.minutes + buf]);
+      if (holds(x) && x.date === date && x.id !== ignoreId && mineFor(x, staffId)) out.push([x.start - buf, x.start + x.minutes + buf]);
     });
     (b.time_off || []).forEach(function (t) {
-      if (t.date !== date) return;
+      if (t.date !== date || !mineFor(t, staffId)) return;
       out.push(t.all_day ? [0, 1440] : [parseHM(t.from), parseHM(t.to)]);
     });
     return out;
@@ -227,15 +297,25 @@ var BW = (function () {
      rules (the owner can book anyone in); opts.ignore leaves one booking out (when moving it). */
   function freeTimes(b, bookings, svc, date, now, opts) {
     opts = opts || {};
+    var people = team(b);
+    if (people.length && !opts._one) {
+      // one person's diary, or 'anyone': a time is free when at least one of them is free
+      var who = opts.staff && opts.staff !== "any" ? people.filter(function (p) { return p.id === opts.staff; }) : people;
+      var all = {};
+      who.forEach(function (p) {
+        freeTimes(b, bookings, svc, date, now, Object.assign({}, opts, { staff: p.id, _one: true })).forEach(function (t) { all[t] = 1; });
+      });
+      return Object.keys(all).map(Number).sort(function (x, y) { return x - y; });
+    }
     var s = b.settings, dur = svc.minutes, step = s.step || 30;
     var dd = dayDiff(now.date, date);
     if (dd < 0) return [];
     if (!opts.owner && dd > s.days_ahead) return [];
     var earliest = opts.owner ? now.min : now.min + s.notice_hours * 60;   // in minutes from the start of today
-    var busy = tables(b) ? busyFor(b, [], date) : busyFor(b, bookings, date, opts.ignore);   // tables: only time off blocks a time outright
+    var busy = tables(b) ? busyFor(b, [], date) : busyFor(b, bookings, date, opts.ignore, opts.staff);   // tables: only time off blocks a time outright
     var party = Math.max(1, +opts.party || 2);
     var out = [];
-    (b.hours[DAYS[weekday(date)]] || []).forEach(function (r) {
+    (hoursFor(b, opts.staff)[DAYS[weekday(date)]] || []).forEach(function (r) {
       var a = parseHM(r[0]), e = parseHM(r[1]);
       // a table can be booked up to an hour before closing, even if the sitting runs past it
       var last = tables(b) ? e - Math.min(dur, 60) : e - dur;
@@ -250,21 +330,21 @@ var BW = (function () {
     return out;
   }
 
-  function clashes(b, bookings, date, start, minutes, ignoreId) {
+  function clashes(b, bookings, date, start, minutes, ignoreId, staffId) {
     var hits = [];
     bookings.forEach(function (x) {
-      if (x.status === "confirmed" && x.date === date && x.id !== ignoreId && start < x.start + x.minutes && start + minutes > x.start) hits.push(x);
+      if (holds(x) && x.date === date && x.id !== ignoreId && mineFor(x, staffId) && start < x.start + x.minutes && start + minutes > x.start) hits.push(x);
     });
     (b.time_off || []).forEach(function (t) {
-      if (t.date !== date) return;
+      if (t.date !== date || !mineFor(t, staffId)) return;
       var a = t.all_day ? 0 : parseHM(t.from), e = t.all_day ? 1440 : parseHM(t.to);
       if (start < e && start + minutes > a) hits.push({ time_off: true, reason: t.reason || "Time off" });
     });
     return hits;
   }
 
-  function withinHours(b, date, start, minutes) {
-    return (b.hours[DAYS[weekday(date)]] || []).some(function (r) { return start >= parseHM(r[0]) && start + minutes <= parseHM(r[1]); });
+  function withinHours(b, date, start, minutes, staffId) {
+    return (hoursFor(b, staffId)[DAYS[weekday(date)]] || []).some(function (r) { return start >= parseHM(r[0]) && start + minutes <= parseHM(r[1]); });
   }
 
   // ------------------------------------------------------------ owner sign-in
@@ -299,7 +379,10 @@ var BW = (function () {
 
   function bookingLine(b, x) {
     if (tables(b) && x.party) return "Table for " + esc(x.party) + "<br>" + esc(niceDate(x.date)) + " at " + esc(niceTime(x.start));
-    return esc(x.service) + "<br>" + esc(niceDate(x.date)) + " at " + esc(niceTime(x.start)) + " (" + esc(niceLength(x.minutes)) + ")";
+    var line = esc(x.service) + (x.staff_name ? " with " + esc(x.staff_name) : "") + "<br>" + esc(niceDate(x.date)) + " at " + esc(niceTime(x.start)) + " (" + esc(niceLength(x.minutes)) + ")";
+    if (x.series_dates && x.series_dates.length > 1)      // a weekly booking: every date in it
+      line += "<br><br>Every week, " + x.series_dates.length + " times:<br>" + x.series_dates.map(function (d) { return esc(niceDate(d)); }).join("<br>");
+    return line;
   }
 
   function calLink(b, x) {
@@ -321,7 +404,19 @@ var BW = (function () {
     var link = env.links.book + "?b=" + encodeURIComponent(b.slug) + "&cancel=" + encodeURIComponent(x.id) + "&t=" + encodeURIComponent(x.cancel_token);
     var contact = [b.phone ? "Phone " + esc(b.phone) : "", b.address ? esc(b.address) : ""].filter(Boolean).join("<br>");
     var subject, body;
-    if (kind === "cancelled") {
+    var extra = (x.answers || []).length ? '<p style="font-size:14px;color:#555">' + x.answers.map(function (a) { return esc(a.q) + ": <b>" + esc(a.a) + "</b>"; }).join("<br>") + "</p>" : "";
+    if (kind === "requested") {
+      subject = "Request received: " + what(b, x) + " on " + niceDate(x.date) + " at " + niceTime(x.start);
+      body = "<h2 style=\"margin:0 0 12px\">We've got your request</h2><p>Hi " + esc(x.name.split(" ")[0]) + ",</p>" +
+        "<p>Thanks for your request to " + esc(b.name) + ". It isn't confirmed yet: they'll check it and you'll get another email when they do.</p>" +
+        '<p style="background:#f4f5f7;padding:12px 14px;border-radius:8px;font-size:16px">' + bookingLine(b, x) + "</p>" + extra +
+        "<p>Changed your mind? " + '<a href="' + esc(link) + '">Cancel this request</a>' + (b.phone ? ", or call " + esc(b.phone) : "") + ".</p>" + (contact ? "<p>" + contact + "</p>" : "");
+    } else if (kind === "declined") {
+      subject = "Not available: " + what(b, x) + " on " + niceDate(x.date);
+      body = "<h2 style=\"margin:0 0 12px\">Sorry, that time doesn't work</h2><p>Hi " + esc(x.name.split(" ")[0]) + ",</p><p>" + esc(b.name) + " can't do this one:</p>" +
+        '<p style="background:#f4f5f7;padding:12px 14px;border-radius:8px">' + bookingLine(b, x) + "</p>" + (x.reply ? "<p>" + esc(x.reply) + "</p>" : "") +
+        '<p><a href="' + esc(env.links.book + "?b=" + encodeURIComponent(b.slug)) + '">Pick another time</a></p>' + (contact ? "<p>" + contact + "</p>" : "");
+    } else if (kind === "cancelled") {
       subject = "Cancelled: " + what(b, x) + " on " + niceDate(x.date);
       body = "<h2 style=\"margin:0 0 12px\">Your booking is cancelled</h2><p>Hi " + esc(x.name.split(" ")[0]) + ",</p><p>This booking with " + esc(b.name) + " is cancelled:</p>" +
         '<p style="background:#f4f5f7;padding:12px 14px;border-radius:8px">' + bookingLine(b, x) + "</p>" +
@@ -330,7 +425,7 @@ var BW = (function () {
       subject = (kind === "moved" ? "Changed: " : "Booked: ") + what(b, x) + " on " + niceDate(x.date) + " at " + niceTime(x.start);
       body = "<h2 style=\"margin:0 0 12px\">" + (kind === "moved" ? "Your booking has changed" : "You're booked in") + "</h2><p>Hi " + esc(x.name.split(" ")[0]) + ",</p>" +
         "<p>" + (kind === "moved" ? "Your booking with " + esc(b.name) + " is now:" : "Thanks for booking with " + esc(b.name) + ".") + "</p>" +
-        '<p style="background:#f4f5f7;padding:12px 14px;border-radius:8px;font-size:16px">' + bookingLine(b, x) + "</p>" +
+        '<p style="background:#f4f5f7;padding:12px 14px;border-radius:8px;font-size:16px">' + bookingLine(b, x) + "</p>" + extra +
         (b.settings.note ? "<p>" + esc(b.settings.note) + "</p>" : "") +
         '<p><a href="' + esc(calLink(b, x)) + '">Add it to your calendar</a></p>' +
         "<p>Can't make it? " + (b.settings.cancel_hours ? "You can cancel online up to " + esc(niceLength(b.settings.cancel_hours * 60)) + " before: " : "You can cancel online: ") +
@@ -343,12 +438,13 @@ var BW = (function () {
     var manage = env.links.admin + "?b=" + encodeURIComponent(b.slug);
     var who = esc(x.name) + (x.phone ? '<br><a href="tel:' + esc(x.phone.replace(/[^\d+]/g, "")) + '">' + esc(x.phone) + "</a>" : "") +
       (x.email ? '<br><a href="mailto:' + esc(x.email) + '">' + esc(x.email) + "</a>" : "");
-    var title = kind === "cancelled" ? "Booking cancelled by the customer" : "New booking";
+    var title = kind === "cancelled" ? "Booking cancelled by the customer" : kind === "requested" ? "New booking request: please accept or decline" : "New booking";
     var body = "<h2 style=\"margin:0 0 12px\">" + title + "</h2>" +
       '<p style="background:#f4f5f7;padding:12px 14px;border-radius:8px;font-size:16px">' + bookingLine(b, x) + "</p>" +
-      "<p>" + who + "</p>" + (x.note ? "<p><b>Their note:</b> " + esc(x.note) + "</p>" : "") +
-      '<p><a href="' + esc(manage) + '">Open your bookings</a></p>';
-    return { to: b.owner_email, subject: (kind === "cancelled" ? "Cancelled: " : "New booking: ") + x.name + ", " + niceDate(x.date).replace(/ \d{4}$/, "") + " " + niceTime(x.start),
+      "<p>" + who + "</p>" + (x.answers || []).map(function (a) { return "<p><b>" + esc(a.q) + ":</b> " + esc(a.a) + "</p>"; }).join("") +
+      (x.note ? "<p><b>Their note:</b> " + esc(x.note) + "</p>" : "") +
+      '<p><a href="' + esc(manage) + '">' + (kind === "requested" ? "Accept or decline it" : "Open your bookings") + "</a></p>";
+    return { to: b.owner_email, subject: (kind === "cancelled" ? "Cancelled: " : kind === "requested" ? "Request: " : "New booking: ") + x.name + ", " + niceDate(x.date).replace(/ \d{4}$/, "") + " " + niceTime(x.start),
              html: wrapEmail(b, body), name: "Bookings for " + b.name, replyTo: x.email || "" };
   }
 
@@ -403,9 +499,10 @@ var BW = (function () {
     var days = Math.max(1, Math.min(14, +req.days || 7));
     var all = env.db.bookings(b.id);
     var out = [];
+    var who = req.staff && req.staff !== "any" && staffById(b, req.staff) ? req.staff : "any";
     for (var i = 0; i < days; i++) {
       var d = addDays(from, i);
-      out.push({ date: d, times: b.status === "active" ? freeTimes(b, all, svc, d, now, { party: req.party }) : [] });
+      out.push({ date: d, times: b.status === "active" ? freeTimes(b, all, svc, d, now, { party: req.party, staff: who }) : [] });
     }
     return { days: out, last: addDays(now.date, b.settings.days_ahead), today: now.date };
   };
@@ -424,18 +521,52 @@ var BW = (function () {
     var party = tables(b) ? Math.round(+req.party) : 0;
     if (tables(b) && !(party >= 1 && party <= b.settings.max_party))
       throw Err("Online booking is for up to " + b.settings.max_party + " people." + (b.phone ? " For bigger groups, please call " + b.phone + "." : ""));
+    var answers = cleanAnswers(b, req.answers);
     var start = Math.round(+req.start);
     var all = env.db.bookings(b.id);
-    if (freeTimes(b, all, svc, req.date, now, { party: party }).indexOf(start) < 0) throw Err("Sorry, that time has just gone. Please pick another.", { taken: true });
-    var mine = all.filter(function (x) { return x.status === "confirmed" && x.email === email && x.date >= now.date; });
-    if (mine.length >= 4) throw Err("You already have a few bookings coming up. Please get in touch to book more.");
-    var x = { id: env.id(10), business: b.id, date: req.date, start: start, minutes: svc.minutes, service: svc.name, service_id: svc.id,
-              name: name, phone: phone, email: email, note: note, status: "confirmed", source: "online", created: new Date(now.ms).toISOString(),
-              cancel_token: env.id(24), updated: "", party: party || "" };
-    env.db.saveBooking(x);
-    var sent = send(env, customerEmail(b, x, env, "booked"));
-    if (b.settings.notify_owner) send(env, ownerEmail(b, x, env, "booked"));
-    return { booking: { id: x.id, date: x.date, start: x.start, minutes: x.minutes, service: x.service, party: x.party, cancel_token: x.cancel_token }, emailed: sent };
+    var people = team(b), who = null;
+    if (people.length) {
+      if (req.staff && req.staff !== "any") {
+        who = people.filter(function (p) { return p.id === req.staff; })[0];
+        if (!who) throw Err("That person isn't taking bookings at the moment. Please choose someone else.");
+      } else {     // 'anyone': whoever is free then, with the fewest bookings that day
+        var free = people.filter(function (p) { return freeTimes(b, all, svc, req.date, now, { party: party, staff: p.id, _one: true }).indexOf(start) >= 0; });
+        free.sort(function (p, q) { var n = function (s) { return all.filter(function (x) { return holds(x) && x.date === req.date && x.staff === s.id; }).length; }; return n(p) - n(q); });
+        who = free[0] || null;
+        if (!who) throw Err("Sorry, that time has just gone. Please pick another.", { taken: true });
+      }
+    }
+    var weeks = Math.round(+req.repeat || 1);
+    if (!(weeks >= 1 && weeks <= Math.max(1, tables(b) ? 1 : b.settings.repeat_max))) throw Err("Weekly bookings can be up to " + Math.max(1, b.settings.repeat_max) + " weeks.");
+    var dates = [], gone = [];
+    for (var w = 0; w < weeks; w++) dates.push(addDays(req.date, 7 * w));
+    dates.forEach(function (d, i) {
+      // the first must be bookable now; later weeks can be beyond the usual booking window, as long as they're free
+      var ok = i === 0 ? freeTimes(b, all, svc, d, now, { party: party, staff: who ? who.id : undefined, _one: !!who }).indexOf(start) >= 0
+                       : withinHours(b, d, start, svc.minutes, who ? who.id : undefined) && !clashes(b, all, d, start - (b.settings.buffer || 0), svc.minutes + 2 * (b.settings.buffer || 0), null, who ? who.id : undefined).length;
+      if (!ok) gone.push(d);
+    });
+    if (gone.length && gone[0] === dates[0]) throw Err("Sorry, that time has just gone. Please pick another.", { taken: true });
+    if (gone.length) throw Err("That time isn't free every week: " + gone.map(niceDate).join(", ") + ". Try fewer weeks, or another time.", { weeks: true });
+    var mine = all.filter(function (x) { return holds(x) && x.email === email && x.date >= now.date; });
+    var groups = {};
+    mine.forEach(function (x) { groups[x.series || x.id] = 1; });
+    if (Object.keys(groups).length >= 4) throw Err("You already have a few bookings coming up. Please get in touch to book more.");
+    var series = weeks > 1 ? env.id(10) : "", made = [];
+    dates.forEach(function (d) {
+      var y = { id: env.id(10), business: b.id, date: d, start: start, minutes: svc.minutes, service: svc.name, service_id: svc.id,
+                name: name, phone: phone, email: email, note: note, status: b.settings.approve ? "requested" : "confirmed", source: "online", created: new Date(now.ms).toISOString(),
+                cancel_token: env.id(24), updated: "", party: party || "", answers: answers, staff: who ? who.id : "", staff_name: who ? who.name : "", series: series };
+      env.db.saveBooking(y);
+      made.push(y);
+    });
+    var x = Object.assign({}, made[0], { series_dates: dates });
+    var kind = x.status === "requested" ? "requested" : "booked";
+    var sent = send(env, customerEmail(b, x, env, kind));
+    // a request always goes to the owner, even with alerts off: nothing happens until they answer it
+    if (b.settings.notify_owner || kind === "requested") send(env, ownerEmail(b, x, env, kind));
+    return { booking: { id: x.id, date: x.date, start: x.start, minutes: x.minutes, service: x.service, party: x.party, cancel_token: x.cancel_token, status: x.status,
+                        staff_name: x.staff_name, dates: dates }, emailed: sent };
   };
 
   function customerBooking(env, req) {
@@ -452,16 +583,19 @@ var BW = (function () {
 
   A.lookup = function (req, env, now) {
     var r = customerBooking(env, req), x = r.x;
-    return { booking: { date: x.date, start: x.start, minutes: x.minutes, service: x.service, party: x.party, status: x.status, name: x.name.split(" ")[0] },
-             can_cancel: x.status === "confirmed" && canCancel(r.b, x, now) };
+    var rest = x.series ? seriesFrom(env, r.b, x).length : 1;
+    return { booking: { date: x.date, start: x.start, minutes: x.minutes, service: x.service, party: x.party, status: x.status, name: x.name.split(" ")[0],
+                        staff_name: x.staff_name || "", weeks_left: rest },
+             can_cancel: holds(x) && canCancel(r.b, x, now) };
   };
 
   A.cancel = function (req, env, now) {
     var r = customerBooking(env, req), b = r.b, x = r.x;
-    if (x.status !== "confirmed") return { already: true };
+    if (!holds(x)) return { already: true };
     if (!canCancel(b, x, now)) throw Err("It's too close to the time to cancel online." + (b.phone ? " Please call " + b.phone + "." : " Please get in touch directly."));
-    x.status = "cancelled"; x.updated = new Date(now.ms).toISOString();
-    env.db.saveBooking(x);
+    var list = req.series ? seriesFrom(env, b, x) : [x];      // a weekly booking: this week, or this and every week after it
+    list.forEach(function (y) { y.status = "cancelled"; y.updated = new Date(now.ms).toISOString(); env.db.saveBooking(y); });
+    x = Object.assign({}, x, { status: "cancelled", series_dates: list.length > 1 ? list.map(function (y) { return y.date; }) : null });
     send(env, customerEmail(b, x, env, "cancelled"));
     if (b.settings.notify_owner) send(env, ownerEmail(b, x, env, "cancelled"));
     return { cancelled: true };
@@ -503,6 +637,15 @@ var BW = (function () {
     if (p.services) b.services = cleanServices(p.services, env);
     if (p.hours) b.hours = cleanHours(p.hours);
     if (p.settings) b.settings = cleanSettings(Object.assign({}, b.settings, p.settings));
+    if (p.staff) {
+      var next = cleanStaff(p.staff, env), keep = {};
+      next.forEach(function (s) { keep[s.id] = 1; });
+      var orphan = (b.staff || []).filter(function (s) { return !keep[s.id]; }).filter(function (s) {
+        return env.db.bookings(b.id).some(function (x) { return holds(x) && x.staff === s.id && x.date >= now.date; });
+      })[0];
+      if (orphan) throw Err(orphan.name + " has bookings coming up. Move them to someone else first, or switch " + orphan.name + " off instead of removing them.");
+      b.staff = next;
+    }
     if (p.owner_email != null) { var e = cleanEmail(p.owner_email); if (!e) throw Err("That email address doesn't look right."); b.owner_email = e; }
     if (p.phone != null) b.phone = clean(p.phone, 30);
     if (p.address != null) b.address = clean(p.address, 160);
@@ -527,13 +670,18 @@ var BW = (function () {
     if (bk.email && !email) throw Err("That email address doesn't look right.");
     var party = tables(b) ? Math.round(+bk.party) : 0;
     if (tables(b) && !(party >= 1 && party <= 1000)) throw Err("Please say how many people.");
+    var who = bk.staff ? staffById(b, bk.staff) : null;
+    if (bk.staff && !who) throw Err("Please choose who it's with.");
+    if (!who && team(b).length > 1) throw Err("Please choose who it's with.");
+    if (!who && team(b).length === 1) who = team(b)[0];
     return { date: bk.date, start: start, minutes: minutes, service: svc ? svc.name : clean(bk.service, 60) || "Booking", service_id: svc ? svc.id : "",
-             name: name, phone: clean(bk.phone, 30), email: email, note: clean(bk.note, 500), party: party || "" };
+             name: name, phone: clean(bk.phone, 30), email: email, note: clean(bk.note, 500), party: party || "",
+             staff: who ? who.id : "", staff_name: who ? who.name : "" };
   }
 
   /* what stops an owner's booking: for tables, too many people at once (or time off); for appointments, another booking */
-  function problems(b, all, date, start, minutes, party, ignoreId) {
-    if (!tables(b)) return clashes(b, all, date, start, minutes, ignoreId);
+  function problems(b, all, date, start, minutes, party, ignoreId, staffId) {
+    if (!tables(b)) return clashes(b, all, date, start, minutes, ignoreId, staffId);
     var hits = clashes(b, [], date, start, minutes);
     var taken = seatsTaken(all, date, start, minutes, ignoreId);
     if (taken + party > b.settings.seats) hits.push({ time_off: true, reason: "that would make " + (taken + party) + " people booked at once (you take " + b.settings.seats + ")" });
@@ -543,7 +691,7 @@ var BW = (function () {
   A.add = function (req, env, now) {
     var b = owner(env, req, now), f = ownerBookingFields(b, req, env);
     var all = env.db.bookings(b.id);
-    var hits = problems(b, all, f.date, f.start, f.minutes, +f.party || 0);
+    var hits = problems(b, all, f.date, f.start, f.minutes, +f.party || 0, null, f.staff || undefined);
     if (hits.length && !req.force) return { clash: hits.map(function (h) { return h.time_off ? h.reason : h.name + " (" + hm(h.start) + ")"; }) };
     var x = Object.assign({ id: env.id(10), business: b.id, status: "confirmed", source: "owner", created: new Date(now.ms).toISOString(),
                             cancel_token: env.id(24), updated: "" }, f);
@@ -563,20 +711,66 @@ var BW = (function () {
     if (!isDate(req.date)) throw Err("Please pick a day.");
     var start = parseHM(req.time);
     if (start == null) throw Err("Please pick a time.");
-    var hits = problems(b, env.db.bookings(b.id), req.date, start, x.minutes, +x.party || 0, x.id);
+    var to = req.staff != null && req.staff !== "" ? staffById(b, req.staff) : (x.staff ? staffById(b, x.staff) : null);
+    if (req.staff && !to) throw Err("Please choose who it's with.");
+    var hits = problems(b, env.db.bookings(b.id), req.date, start, x.minutes, +x.party || 0, x.id, to ? to.id : undefined);
     if (hits.length && !req.force) return { clash: hits.map(function (h) { return h.time_off ? h.reason : h.name + " (" + hm(h.start) + ")"; }) };
     x.date = req.date; x.start = start; x.updated = new Date(now.ms).toISOString();
+    if (to) { x.staff = to.id; x.staff_name = to.name; }
     env.db.saveBooking(x);
     var emailed = req.notify && x.email ? send(env, customerEmail(b, x, env, "moved")) : false;
     return { booking: x, emailed: emailed };
   };
 
+  /* the rest of a weekly booking, from this one on (not ones already past or answered) */
+  function seriesFrom(env, b, x) {
+    if (!x.series) return [x];
+    return env.db.bookings(b.id).filter(function (y) { return y.series === x.series && y.date >= x.date && y.status === x.status; })
+      .sort(function (p, q) { return p.date < q.date ? -1 : 1; });
+  }
+
   A.ocancel = function (req, env, now) {
     var b = owner(env, req, now), x = ownedBooking(env, b, req.id);
+    (req.series ? seriesFrom(env, b, x) : [x]).forEach(function (y) {
+      if (y.id === x.id) return;
+      y.status = "cancelled"; y.updated = new Date(now.ms).toISOString(); env.db.saveBooking(y);
+    });
     x.status = "cancelled"; x.updated = new Date(now.ms).toISOString();
     env.db.saveBooking(x);
     var emailed = req.notify && x.email ? send(env, customerEmail(b, x, env, "cancelled")) : false;
     return { booking: x, emailed: emailed };
+  };
+
+  /* the owner answers a request: accepted becomes a normal booking (and the customer is told); declined frees the time */
+  function request(env, b, id) {
+    var x = ownedBooking(env, b, id);
+    if (x.status !== "requested") throw Err(x.status === "confirmed" ? "That booking is already accepted." : "That request has already been answered.");
+    return x;
+  }
+
+  /* accepting or declining a weekly request answers every week of it; accepting can pass it to someone else in the team */
+  A.accept = function (req, env, now) {
+    var b = owner(env, req, now), x = request(env, b, req.id), list = seriesFrom(env, b, x);
+    var to = req.staff ? staffById(b, req.staff) : null;
+    if (req.staff && !to) throw Err("Please choose who it's with.");
+    if (to && to.id !== x.staff) {
+      var all = env.db.bookings(b.id), busy = list.filter(function (y) { return clashes(b, all, y.date, y.start, y.minutes, y.id, to.id).length; });
+      if (busy.length && !req.force) return { clash: busy.map(function (y) { return to.name + " is busy " + niceDate(y.date) + " at " + niceTime(y.start); }) };
+    }
+    list.forEach(function (y) {
+      y.status = "confirmed"; y.updated = new Date(now.ms).toISOString();
+      if (to) { y.staff = to.id; y.staff_name = to.name; }
+      env.db.saveBooking(y);
+    });
+    var first = Object.assign({}, list[0], { series_dates: list.map(function (y) { return y.date; }) });
+    return { booking: list[0], count: list.length, emailed: send(env, customerEmail(b, first, env, "booked")) };
+  };
+
+  A.decline = function (req, env, now) {
+    var b = owner(env, req, now), x = request(env, b, req.id), list = seriesFrom(env, b, x), reply = clean(req.reply, 300);
+    list.forEach(function (y) { y.status = "declined"; y.updated = new Date(now.ms).toISOString(); y.reply = reply; env.db.saveBooking(y); });
+    var first = Object.assign({}, list[0], { series_dates: list.map(function (y) { return y.date; }) });
+    return { booking: list[0], count: list.length, emailed: send(env, customerEmail(b, first, env, "declined")) };
   };
 
   A.timeoff_add = function (req, env, now) {
@@ -588,12 +782,13 @@ var BW = (function () {
     if (!allDay && (a == null || e == null || e <= a)) throw Err("Please give a start and end time, or tick 'All day'.");
     b.time_off = b.time_off || [];
     for (var d = from; d <= to; d = addDays(d, 1)) {
-      b.time_off.push({ id: env.id(8), date: d, all_day: allDay, from: allDay ? "" : hm(a), to: allDay ? "" : hm(e), reason: clean(t.reason, 60) });
+      b.time_off.push({ id: env.id(8), date: d, all_day: allDay, from: allDay ? "" : hm(a), to: allDay ? "" : hm(e), reason: clean(t.reason, 60),
+                        staff: t.staff && staffById(b, t.staff) ? t.staff : "" });     // one person's time off, or everyone's
     }
     pruneTimeOff(b, now);
     b.time_off.sort(function (x, y) { return x.date < y.date ? -1 : x.date > y.date ? 1 : 0; });
     env.db.saveBusiness(b);
-    var affected = bookingsBetween(env, b, from, to).filter(function (x) { return x.status === "confirmed" && clashes(b, [], x.date, x.start, x.minutes).length; });
+    var affected = bookingsBetween(env, b, from, to).filter(function (x) { return holds(x) && clashes(b, [], x.date, x.start, x.minutes, null, x.staff || undefined).length; });
     return { business: ownerView(b), affected: affected };
   };
 
@@ -626,7 +821,8 @@ var BW = (function () {
               website: /^https?:\/\//.test(d.website || "") ? clean(d.website, 200) : "",
               mode: d.mode === "tables" ? "tables" : "appointments",
               services: cleanServices(d.services && d.services.length ? d.services : [{ name: d.mode === "tables" ? "Table" : "Appointment", minutes: d.mode === "tables" ? 90 : 60 }], env),
-              hours: cleanHours(d.hours || {}), settings: cleanSettings(d.settings), theme: cleanTheme(d.theme), words: cleanWords(d.words), time_off: [],
+              hours: cleanHours(d.hours || {}), settings: cleanSettings(d.settings), theme: cleanTheme(d.theme), words: cleanWords(d.words), questions: cleanQuestions(d.questions), time_off: [],
+              staff: d.mode === "tables" ? [] : cleanStaff(d.staff, env),
               pin: null, setup_code: env.id(20), setup_expires: addDays(now.date, SETUP_DAYS), fails: 0, lock_until: 0,
               created: new Date(now.ms).toISOString(), updated: "" };
     env.db.saveBusiness(b);
@@ -638,7 +834,7 @@ var BW = (function () {
     return { businesses: env.db.listBusinesses().map(function (b) {
       var all = env.db.bookings(b.id);
       return { slug: b.slug, name: b.name, status: b.status, owner_email: b.owner_email, has_pin: !!(b.pin && b.pin.hash), created: b.created,
-               upcoming: all.filter(function (x) { return x.status === "confirmed" && x.date >= now.date; }).length, total: all.length };
+               upcoming: all.filter(function (x) { return holds(x) && x.date >= now.date; }).length, total: all.length };
     }) };
   };
 
@@ -655,9 +851,12 @@ var BW = (function () {
     var b = business(env, req.b), p = req.patch || {};
     if (p.theme) b.theme = cleanTheme(Object.assign({}, b.theme, p.theme));
     if (p.words) b.words = cleanWords(p.words);
+    if (p.questions) b.questions = cleanQuestions(p.questions);
+    if (p.staff) b.staff = cleanStaff(p.staff, env);
     if (p.settings) b.settings = cleanSettings(Object.assign({}, b.settings, p.settings));
     if (p.name) b.name = clean(p.name, 80);
     if (p.website != null) b.website = /^https?:\/\//.test(p.website) ? clean(p.website, 200) : "";
+    if (p.menu_url != null) b.menu_url = /^https:\/\//.test(p.menu_url) ? clean(p.menu_url, 300) : "";
     if (p.status) b.status = p.status === "paused" ? "paused" : "active";
     env.db.saveBusiness(b);
     return { business: ownerView(b) };
@@ -678,7 +877,7 @@ var BW = (function () {
     } catch (e) {
       if (e && e.bw) {
         var out = { ok: false, error: e.message };
-        ["signin", "taken"].forEach(function (k) { if (e[k]) out[k] = true; });
+        ["signin", "taken", "weeks"].forEach(function (k) { if (e[k]) out[k] = true; });
         return out;
       }
       if (env.log) env.log("error: " + (e && e.stack || e));
@@ -688,6 +887,7 @@ var BW = (function () {
 
   return { handle: handle, MUTATING: MUTATING, freeTimes: freeTimes, niceDate: niceDate, niceTime: niceTime, niceLength: niceLength,
            addDays: addDays, dayDiff: dayDiff, weekday: weekday, hm: hm, parseHM: parseHM, slugify: slugify, DAYS: DAYS, DAY_NAMES: DAY_NAMES,
-           DEFAULT_SETTINGS: DEFAULT_SETTINGS, cleanTheme: cleanTheme, cleanWords: cleanWords };
+           DEFAULT_SETTINGS: DEFAULT_SETTINGS, cleanTheme: cleanTheme, cleanWords: cleanWords, cleanQuestions: cleanQuestions,
+           clean: clean, cleanEmail: cleanEmail, cleanPhone: cleanPhone, esc: esc, cleanStaff: cleanStaff };
 })();
 if (typeof module !== "undefined") module.exports = BW;
