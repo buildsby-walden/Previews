@@ -1,0 +1,63 @@
+/* Builds by Walden Bookings: shared look. Colours and fonts come from the business (api.js applyTheme). */
+:root{--primary:#1f2937;--onp:#fff;--card:#fff;--text:#111827;--bg:#ffffff;--soft:#f4f5f7;--radius:10px;--hfont:Inter,system-ui,sans-serif;--bfont:Inter,system-ui,sans-serif;--htrans:none;
+  --muted:#6b7280;--line:rgba(0,0,0,.12);--ok:#15803d;--bad:#b91c1c}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font-family:var(--bfont);font-size:16px;line-height:1.5}
+h1,h2,h3{font-family:var(--hfont);text-transform:var(--htrans);line-height:1.15;margin:0 0 .5rem;letter-spacing:-.01em}
+h1{font-size:clamp(1.5rem,5vw,2.1rem);font-weight:800}
+h2{font-size:1.15rem;font-weight:700}
+a{color:var(--link,var(--primary))}
+button,input,select,textarea{font:inherit;color:inherit}
+.wrap{max-width:720px;margin:0 auto;padding:0 16px}
+.muted{color:var(--muted)}.small{font-size:.85rem}
+.hidden{display:none!important}
+
+/* header */
+.top{border-bottom:1px solid var(--line);background:var(--bg)}
+.top .wrap{display:flex;align-items:center;gap:14px;padding-top:14px;padding-bottom:14px}
+.top img{height:56px;width:auto;max-width:150px;object-fit:contain}
+.top .who{min-width:0}
+.top .who b{display:block;font-family:var(--hfont);text-transform:var(--htrans);font-size:1.05rem;line-height:1.2}
+.top .who span{display:block;color:var(--muted);font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.top .who a{color:var(--muted)}
+.dark-head .top{background:var(--header);border-bottom-color:transparent}
+/* dark websites (Hoi An Quan: black page, yellow headings): dark booking pages to match */
+.dark-ui{--card:color-mix(in srgb,var(--bg) 90%,#fff);--line:rgba(255,255,255,.16);--muted:#b9b4ab;color-scheme:dark}
+.dark-ui h1,.dark-ui h2{color:var(--primary)}
+.dark-ui input,.dark-ui select,.dark-ui textarea{color:var(--text)}
+.dark-ui .err{background:#3a1414;color:#ffb4b4}.dark-ui .okmsg{background:#13301d;color:#a7f3c0}
+.dark-head .top .who b{color:#fff}.dark-head .top .who span,.dark-head .top .who a,.dark-head .top .out{color:rgba(255,255,255,.75)}
+
+/* buttons and fields */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;border:0;border-radius:var(--radius);background:var(--primary);color:var(--onp);font-weight:700;
+  padding:.85rem 1.3rem;cursor:pointer;text-decoration:none;font-family:var(--hfont);text-transform:var(--htrans);letter-spacing:.02em;min-height:48px}
+.btn:disabled{opacity:.55;cursor:default}
+.btn.line{background:transparent;color:var(--text);border:1.5px solid var(--line)}
+.btn.small{min-height:38px;padding:.45rem .8rem;font-size:.85rem}
+.btn.danger{background:var(--bad)}
+.btn.wide{width:100%}
+label.f{display:block;margin:0 0 .9rem}
+label.f > span{display:block;font-weight:600;font-size:.9rem;margin-bottom:.3rem}
+input[type=text],input[type=tel],input[type=email],input[type=password],input[type=number],input[type=date],input[type=time],select,textarea{
+  width:100%;border:1.5px solid var(--line);border-radius:var(--radius);padding:.7rem .8rem;background:var(--card);min-height:48px;font-size:16px}
+textarea{min-height:84px;resize:vertical}
+input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid color-mix(in srgb,var(--primary) 35%,transparent);outline-offset:1px;border-color:var(--primary)}
+.check{display:flex;gap:.6rem;align-items:flex-start;margin:.4rem 0;cursor:pointer}
+.check input{width:20px;height:20px;margin-top:2px;accent-color:var(--primary);flex:none}
+.err{background:#fef2f2;color:var(--bad);border-radius:var(--radius);padding:.7rem .9rem;margin:.8rem 0;font-weight:600}
+.okmsg{background:#f0fdf4;color:var(--ok);border-radius:var(--radius);padding:.7rem .9rem;margin:.8rem 0;font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:1rem}
+
+/* test mode */
+.test-banner{background:#fff7d6;color:#5c4400;font-size:.85rem;padding:.55rem 16px;text-align:center;font-family:system-ui,sans-serif}
+.test-banner button{background:none;border:0;color:#5c4400;text-decoration:underline;font-weight:700;cursor:pointer;padding:0 .2rem}
+.mail-view{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:100;overflow:auto;padding:24px 12px;font-family:system-ui,sans-serif}
+.mail-card{max-width:640px;margin:0 auto;background:#fff;color:#1f2430;border-radius:12px;padding:16px}
+.mail-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.mail-card details{border-top:1px solid #eee;padding:10px 0}.mail-card summary{cursor:pointer}
+.mail-body{border:1px solid #eee;border-radius:8px;margin-top:8px;padding:8px}
+.mail-card button{cursor:pointer}
+
+footer.foot{border-top:1px solid var(--line);margin-top:3rem;padding:1.2rem 0 2rem;font-size:.8rem;color:var(--muted);text-align:center}
+footer.foot a{color:var(--muted)}
