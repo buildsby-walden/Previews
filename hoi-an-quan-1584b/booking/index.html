@@ -22,6 +22,10 @@
 .svc b{display:block;font-family:var(--hfont)}
 .svc small{color:var(--muted)}
 .svc .price{font-weight:800;white-space:nowrap}
+.svc small.desc{display:block;margin-top:.15rem;line-height:1.35}
+.svc-sec{font-size:.8rem;text-transform:uppercase;letter-spacing:.06em;opacity:.7;margin:1rem 0 .1rem}
+.svc-sec:first-child{margin-top:0}
+.who button small{display:block;font-size:.75rem;font-weight:400;opacity:.75}
 .parties{display:grid;grid-template-columns:repeat(4,1fr);gap:.5rem;margin-bottom:.6rem}
 .party{border:1.5px solid var(--line);border-radius:var(--radius);background:var(--card);padding:.6rem 0;cursor:pointer;min-height:60px;line-height:1.1}
 .party b{display:block;font-size:1.3rem;font-family:var(--hfont)}.party small{color:var(--muted);font-size:.75rem}
@@ -89,6 +93,11 @@
   function niceTime(min) { var h = Math.floor(min / 60), m = min % 60; if (h === 12 && !m) return "12 noon"; return ((h % 12) || 12) + (m ? ":" + (m < 10 ? "0" : "") + m : "") + (h >= 12 ? "pm" : "am"); }
   function niceDate(d) { var x = new Date(ms(d)); return ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][x.getUTCDay()] + " " + x.getUTCDate() + " " + MN[x.getUTCMonth()]; }
   function len(min) { var h = Math.floor(min / 60), m = min % 60; return (h ? h + (h === 1 ? " hr" : " hrs") : "") + (h && m ? " " : "") + (m ? m + " mins" : ""); }
+  /* their price for this service with the chosen person (JHD prices by stylist level: Graduate Stylist, Stylist, Senior, John) */
+  function priceWith(svc, staffId) {
+    var p = (biz.staff || []).filter(function (x) { return x.id === staffId; })[0];
+    return p && p.level && svc.levels && svc.levels[p.level] ? svc.levels[p.level] : svc.price;
+  }
   function price(p) { p = String(p || "").trim(); return !p ? "" : /^[\d.]+$/.test(p) ? "£" + p : p; }
   function fail(msg) { $("#main").innerHTML = '<div class="intro"><h1>Sorry</h1><p>' + E(msg) + "</p></div>"; }
 
@@ -101,7 +110,8 @@
     document.title = "Book online | " + biz.name;
     $("#bname").textContent = biz.name;
     $("#bwhere").innerHTML = [biz.address ? E(biz.address) : "", biz.phone ? '<a href="tel:' + E(biz.phone.replace(/[^\d+]/g, "")) + '">' + E(biz.phone) + "</a>" : ""].filter(Boolean).join(" · ");
-    if (biz.theme.logo) { $("#logo").src = biz.theme.logo; $("#logo").alt = biz.name; $("#logo").classList.remove("hidden"); }
+    if (biz.theme.logo) { $("#logo").src = biz.theme.logo; $("#logo").alt = biz.name; $("#logo").classList.remove("hidden");
+      $("#logo").onload = function () { if (this.naturalWidth > this.naturalHeight * 2.5) this.classList.add("wide"); }; }
     $("#top").classList.remove("hidden");
     if (params.get("cancel")) return cancelView(params.get("cancel"), params.get("t"));
     if (!biz.open) return fail("Online booking is switched off at the moment." + (biz.phone ? " Please call " + biz.phone + "." : ""));
@@ -119,9 +129,12 @@
     else if (isT()) h += '<div class="parties">' + Array.apply(null, Array(biz.settings.max_party || 8)).map(function (_, i) {
       return '<button type="button" class="party" data-party="' + (i + 1) + '"><b>' + (i + 1) + "</b><small>" + (i ? "people" : "person") + "</small></button>";
     }).join("") + "</div>" + '<p class="small muted">More than ' + (biz.settings.max_party || 8) + "?" + (biz.phone ? ' Please call <a href="tel:' + E(biz.phone.replace(/[^\d+]/g, "")) + '">' + E(biz.phone) + "</a>." : " Please get in touch.") + "</p>";
-    else h += '<div class="services">' + biz.services.map(function (x, i) {
-      return '<button type="button" class="svc" data-svc="' + i + '"><span><b>' + E(x.name) + "</b><small>" + len(x.minutes) + (x.desc ? " · " + E(x.desc) : "") + '</small></span><span class="price">' + E(price(x.price)) + "</span></button>";
-    }).join("") + "</div>";
+    else { var lastSec = null; h += '<div class="services">' + biz.services.map(function (x, i) {
+      var head = "";
+      if (x.section && x.section !== lastSec) { lastSec = x.section; head = '<h3 class="svc-sec">' + E(x.section) + "</h3>"; }   // their own headings
+      return head + '<button type="button" class="svc" data-svc="' + i + '"><span><b>' + E(x.name) + "</b><small>" + len(x.minutes) + (x.est ? " (usual time)" : "") +
+        '</small>' + (x.desc ? '<small class="desc">' + E(x.desc) + "</small>" : "") + '</span><span class="price">' + E(price(x.price)) + "</span></button>";
+    }).join("") + "</div>"; }
     h += "</section>";
     // 2 time
     h += '<section id="step2" class="step' + (pick.start != null ? " done" : "") + '"><h2><i>2</i>Choose a day and time</h2>';
@@ -203,8 +216,12 @@
   function staffChoice() {
     if (team().length < 2 || biz.settings.pick_staff === false) return "";
     return '<p class="who-q">' + E(W.staff_q || "Who would you like?") + '</p><div class="who" role="group">' +
-      [["any", W.staff_any || "Anyone available"]].concat(team().map(function (p) { return [p.id, p.name]; })).map(function (o) {
-        return '<button type="button" data-staff="' + E(o[0]) + '" aria-pressed="' + (pick.staff === o[0]) + '" class="' + (pick.staff === o[0] ? "on" : "") + '">' + E(o[1]) + "</button>";
+      [["any", W.staff_any || "Anyone available", ""]].concat(team().filter(function (p) {   // 'n/a' on their list: they don't do this one
+        var sv = pick.service; return !(sv && sv.levels && p.level && !sv.levels[p.level]); }).map(function (p) {
+        var lvp = pick.service && pick.service.levels && p.level ? pick.service.levels[p.level] : "";
+        return [p.id, p.name, [p.role || "", lvp ? price(lvp) : ""].filter(Boolean).join(" · ")]; })).map(function (o) {
+        return '<button type="button" data-staff="' + E(o[0]) + '" aria-pressed="' + (pick.staff === o[0]) + '" class="' + (pick.staff === o[0] ? "on" : "") + '">' + E(o[1]) +
+          (o[2] ? '<small>' + E(o[2]) + "</small>" : "") + "</button>";
       }).join("") + "</div>" + (biz.staff_note ? '<p class="small muted" style="margin:-.4rem 0 .8rem">' + E(biz.staff_note) + "</p>" : "");
   }
   /* the same time every week, for as many weeks as the business allows */
@@ -228,7 +245,8 @@
   function whatLine() {       // 'Table for 4', or 'Beginner lessons · 1 hr · £36 · with Salman'
     var s = pick.service;
     if (isT()) return "<b>Table for " + pick.party + "</b>";
-    return "<b>" + E(s.name) + "</b> · " + len(s.minutes) + (price(s.price) ? " · " + E(price(s.price)) : "") + (pick.staff && pick.staff !== "any" && staffName(pick.staff) ? " · with " + E(staffName(pick.staff)) : "");
+    var pr = priceWith(s, pick.staff);
+    return "<b>" + E(s.name) + "</b> · " + len(s.minutes) + (price(pr) ? " · " + E(price(pr)) : "") + (pick.staff && pick.staff !== "any" && staffName(pick.staff) ? " · with " + E(staffName(pick.staff)) : "");
   }
 
   function summary() {

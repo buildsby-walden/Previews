@@ -17,6 +17,8 @@ button,input,select,textarea{font:inherit;color:inherit}
 .top{border-bottom:1px solid var(--line);background:var(--bg)}
 .top .wrap{display:flex;align-items:center;gap:14px;padding-top:14px;padding-bottom:14px}
 .top img{height:56px;width:auto;max-width:150px;object-fit:contain}
+.top img.wide{height:46px;max-width:240px}      /* a name written out (a wordmark): wider, so thin lettering stays readable */
+@media (max-width:520px){.top img.wide{height:38px;max-width:170px}}
 .top .who{min-width:0}
 .top .who b{display:block;font-family:var(--hfont);text-transform:var(--htrans);font-size:1.05rem;line-height:1.2}
 .top .who span{display:block;color:var(--muted);font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -61,3 +63,6 @@ input:focus,select:focus,textarea:focus,button:focus-visible{outline:3px solid c
 
 footer.foot{border-top:1px solid var(--line);margin-top:3rem;padding:1.2rem 0 2rem;font-size:.8rem;color:var(--muted);text-align:center}
 footer.foot a{color:var(--muted)}
+
+/* nothing wider than the screen on a phone: inputs (dates especially) and grid columns may shrink (13 Oct 2026) */
+input,select,textarea{max-width:100%;min-width:0;box-sizing:border-box}

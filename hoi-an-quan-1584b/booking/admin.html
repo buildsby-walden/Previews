@@ -42,11 +42,13 @@ html.dark-ui .bk.req{background:rgba(217,119,6,.12)}
 .waiting{background:#fffbeb;border:1px solid #fcd34d;color:#78350f;border-radius:var(--radius);padding:.7rem .9rem;margin:0 0 1rem;font-weight:600}
 html.dark-ui .waiting{background:rgba(217,119,6,.12);color:inherit}
 .inline{background:var(--soft);border-radius:var(--radius);padding:.8rem;margin-top:.6rem}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+.row2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.6rem}.row2>*{min-width:0}.row2 input:not([type=checkbox]):not([type=radio]),.row2 select{width:100%;min-width:0;box-sizing:border-box}
+@media (max-width:420px){.row2{grid-template-columns:minmax(0,1fr)}}      /* date boxes can't shrink enough for two side by side on a phone (13 Oct 2026) */
 .svcrow{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;align-items:end;border-bottom:1px solid var(--line);padding:.7rem 0}
 .svcrow label.f:first-child{grid-column:1/-1}
 @media (min-width:600px){.svcrow{grid-template-columns:1fr 100px 110px}.svcrow label.f:first-child{grid-column:auto}}
 .svcrow .full{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+#team .full{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:.4rem .9rem}#team .full .check{white-space:normal}#team .hrs{display:flex;flex-wrap:wrap;align-items:center;gap:.4rem}#team .hrs input[type=time]{max-width:7.5rem}#team>.row2{padding-bottom:.9rem;margin-bottom:.9rem;border-bottom:1px solid var(--line)}      /* the team editor wraps on a phone (13 Oct 2026) */
 .svcrow label.f{margin:0}
 .hrs{display:grid;grid-template-columns:110px 1fr;gap:.4rem .8rem;align-items:center;padding:.55rem 0;border-bottom:1px solid var(--line)}
 .hrs .times{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}
@@ -129,7 +131,8 @@ html.dark-ui .waiting{background:rgba(217,119,6,.12);color:inherit}
     BWAPI.applyTheme(r.business.theme);
     $("#bname").textContent = r.business.name;
     document.title = "Bookings | " + r.business.name;
-    if (r.business.theme.logo) { $("#logo").src = r.business.theme.logo; $("#logo").alt = ""; $("#logo").classList.remove("hidden"); }
+    if (r.business.theme.logo) { $("#logo").src = r.business.theme.logo; $("#logo").alt = ""; $("#logo").classList.remove("hidden");
+      $("#logo").onload = function () { if (this.naturalWidth > this.naturalHeight * 2.5) this.classList.add("wide"); }; }
     $("#top").classList.remove("hidden");
     if (BWAPI.demo) return BWAPI.ready.then(function () { saveToken(BWLocal.demoSignIn()); load(); });
     if (q.get("setup")) return setupView(q.get("setup"));

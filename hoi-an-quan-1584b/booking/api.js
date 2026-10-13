@@ -61,7 +61,8 @@ window.BWAPI = (function () {
     if (fams.length) {
       var l = document.createElement("link");
       l.rel = "stylesheet";
-      l.href = "https://fonts.googleapis.com/css2?" + fams.map(function (f) { return "family=" + f.replace(/ /g, "+") + ":wght@400;500;600;700;800"; }).join("&") + "&display=swap";
+      l.href = "https://fonts.googleapis.com/css2?" + fams.map(function (f) {   // Google's names are case-sensitive: 'playfair display' fails, 'Playfair Display' loads
+        return "family=" + f.replace(/\b[a-z]/g, function (c) { return c.toUpperCase(); }).replace(/ /g, "+") + ":wght@400;500;600;700;800"; }).join("&") + "&display=swap";
       document.head.appendChild(l);
     }
     var m = document.querySelector('meta[name="theme-color"]');
@@ -73,7 +74,9 @@ window.BWAPI = (function () {
     var d = document.createElement("div");
     d.className = "test-banner";
     d.innerHTML = demo
-      ? "<b>Demo made for " + esc(window.BW_DEMO.business.name) + " by Builds by Walden.</b> Prices, times and bookings are examples. Nothing you do here is saved or sent. <button type=\"button\">See the emails it would send</button>"
+      ? "<b>Demo made for " + esc(window.BW_DEMO.business.name) + " by Builds by Walden.</b> " + (window.BW_DEMO.business.from_website
+          ? "Services and prices are from your own website" + (window.BW_DEMO.business.from_website === "est" ? "; appointment lengths are usual times you'd change" : "") + ". Free times and bookings are examples."
+          : "Prices, times and bookings are examples.") + " Nothing you do here is saved or sent. <button type=\"button\">See the emails it would send</button>"
       : "<b>Test mode on this computer.</b> Nothing is saved online and no real emails are sent. <button type=\"button\">See the emails it would send</button>";
     document.body.insertBefore(d, document.body.firstChild);
     d.querySelector("button").onclick = function () { ready.then(function () { BWLocal.showMails(); }); };

@@ -107,13 +107,21 @@ var BW = (function () {
   function cleanServices(list, env) {
     if (!Array.isArray(list)) throw Err("Services should be a list.");
     var out = [];
-    list.slice(0, 40).forEach(function (s) {
+    list.slice(0, 100).forEach(function (s) {     // a full salon price list runs to 60+ (Franclin's)
       var name = clean(s && s.name, 60);
       if (!name) return;
       var minutes = Math.round(+s.minutes);
       if (!(minutes >= 5 && minutes <= 720)) throw Err("'" + name + "' needs a length between 5 minutes and 12 hours.");
-      out.push({ id: clean(s.id, 20) || env.id(8), name: name, minutes: minutes, price: clean(s.price, 20),
-                 desc: clean(s.desc, 160), active: s.active !== false });
+      var o = { id: clean(s.id, 20) || env.id(8), name: name, minutes: minutes, price: clean(s.price, 20),
+                desc: clean(s.desc, 160), active: s.active !== false };
+      if (clean(s.section, 40)) o.section = clean(s.section, 40);     // their own heading: 'Technical services'
+      if (s.est) o.est = true;                                          // a usual length, not one they gave
+      if (s.levels && typeof s.levels === "object") {                  // a price for each stylist level: {'Senior': '£27'}
+        var lv = {}, n = 0;
+        Object.keys(s.levels).slice(0, 8).forEach(function (k) { var key = clean(k, 30), v = clean(s.levels[k], 20); if (key && v) { lv[key] = v; n++; } });
+        if (n >= 2) o.levels = lv;
+      }
+      out.push(o);
     });
     if (!out.some(function (s) { return s.active; })) throw Err("Add at least one service customers can book.");
     return out;
@@ -209,6 +217,8 @@ var BW = (function () {
       if (!name || seen[name.toLowerCase()]) return;
       seen[name.toLowerCase()] = 1;
       var p = { id: clean(s.id, 20) || env.id(8), name: name, active: s.active !== false };
+      if (clean(s.role, 40)) p.role = clean(s.role, 40);     // 'Senior Stylist', as their own team page says
+      if (clean(s.level, 30)) p.level = clean(s.level, 30);  // which column of their price list they charge
       if (s.hours) p.hours = cleanHours(s.hours);     // their own working hours; none = the business's hours
       out.push(p);
     });
@@ -241,11 +251,11 @@ var BW = (function () {
     return {
       slug: b.slug, name: b.name, phone: b.phone || "", address: b.address || "", website: b.website || "",
       services: b.services.filter(function (s) { return s.active; }).map(function (s) {
-        return { id: s.id, name: s.name, minutes: s.minutes, price: s.price, desc: s.desc };
+        return { id: s.id, name: s.name, minutes: s.minutes, price: s.price, desc: s.desc, section: s.section || "", est: !!s.est, levels: s.levels || null };
       }),
       settings: { days_ahead: b.settings.days_ahead, cancel_hours: b.settings.cancel_hours, note: b.settings.note, notice_hours: b.settings.notice_hours,
                   max_party: b.settings.max_party, approve: !!b.settings.approve, pick_staff: b.settings.pick_staff !== false, repeat_max: b.settings.repeat_max || 0 },
-      staff: team(b).map(function (s) { return { id: s.id, name: s.name }; }), staff_note: clean(b.staff_note, 160),
+      staff: team(b).map(function (s) { return { id: s.id, name: s.name, role: s.role || "", level: s.level || "" }; }), staff_note: clean(b.staff_note, 160),
       menu_url: /^https:\/\//.test(b.menu_url || "") ? clean(b.menu_url, 300) : "",
       questions: b.questions || [],
       mode: tables(b) ? "tables" : "appointments",
